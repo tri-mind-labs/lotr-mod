@@ -8,6 +8,9 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 
 /**
@@ -19,80 +22,49 @@ public class LandmaskLoader {
     private static int imageHeight;
     private static boolean loaded = false;
 
-    // Scale factor: how many blocks per pixel in the landmask
-    // A larger value means the continent will be bigger in the world
     public static final int BLOCKS_PER_PIXEL = 16;
 
-    /**
-     * Load the landmask image from resources
-     */
     public static void loadLandmask(ResourceManager resourceManager) {
+        // Try method 1: Load from resource manager (production)
+        if (tryLoadFromResourceManager(resourceManager)) {
+            return;
+        }
+        
+        // Try method 2: Load from filesystem (development fallback)
+        if (tryLoadFromFilesystem()) {
+            return;
+        }
+        
+        // Both methods failed - use fallback
+        LOTRMod.LOGGER.error("All landmask loading methods failed!");
+        createFallbackImage();
+    }
+
+    private static boolean tryLoadFromResourceManager(ResourceManager resourceManager) {
         try {
             ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(
                 LOTRMod.MODID, 
                 "textures/landmask/middleearth_landmask.png"
             );
 
-            LOTRMod.LOGGER.info("========================================");
-            LOTRMod.LOGGER.info("DEBUG: Attempting to load landmask");
-            LOTRMod.LOGGER.info("DEBUG: Resource location: {}", landmaskLocation);
-            LOTRMod.LOGGER.info("DEBUG: Namespace: {}", landmaskLocation.getNamespace());
-            LOTRMod.LOGGER.info("DEBUG: Path: {}", landmaskLocation.getPath());
-            
-            // Debug: List ALL resources in lotrmod namespace
-            try {
-                LOTRMod.LOGGER.info("DEBUG: Listing ALL lotrmod resources...");
-                var allModResources = resourceManager.listResources(
-                    "textures",
-                    path -> path.getNamespace().equals(LOTRMod.MODID)
-                );
-                LOTRMod.LOGGER.info("DEBUG: Found {} total lotrmod texture resources", allModResources.size());
-                allModResources.forEach((location, resource) -> {
-                    LOTRMod.LOGGER.info("DEBUG:   - {}", location);
-                });
-            } catch (Exception e) {
-                LOTRMod.LOGGER.error("DEBUG: Error listing all resources", e);
-            }
-            
-            // List resources in landmask folder specifically
-            try {
-                var landmaskResources = resourceManager.listResources(
-                    "textures/landmask",
-                    path -> path.getNamespace().equals(LOTRMod.MODID) && path.getPath().endsWith(".png")
-                );
-                LOTRMod.LOGGER.info("DEBUG: Found {} resources in textures/landmask", landmaskResources.size());
-                landmaskResources.forEach((location, resource) -> {
-                    LOTRMod.LOGGER.info("DEBUG: Landmask resource: {}", location);
-                });
-            } catch (Exception e) {
-                LOTRMod.LOGGER.error("DEBUG: Error listing landmask resources", e);
-            }
+            LOTRMod.LOGGER.info("Attempting to load landmask from resource manager...");
 
             Optional<Resource> resourceOpt = resourceManager.getResource(landmaskLocation);
 
             if (resourceOpt.isEmpty()) {
-                LOTRMod.LOGGER.error("========================================");
-                LOTRMod.LOGGER.error("LANDMASK IMAGE NOT FOUND!");
-                LOTRMod.LOGGER.error("Resource location: {}", landmaskLocation);
-                LOTRMod.LOGGER.error("Please ensure the file exists in the mod JAR at:");
-                LOTRMod.LOGGER.error("  assets/lotrmod/textures/landmask/middleearth_landmask.png");
-                LOTRMod.LOGGER.error("========================================");
-                createFallbackImage();
-                return;
+                LOTRMod.LOGGER.warn("Landmask not found in resource manager");
+                return false;
             }
 
             Resource resource = resourceOpt.get();
-            LOTRMod.LOGGER.info("DEBUG: Resource found! Source: {}", resource.sourcePackId());
             
             try (InputStream stream = resource.open()) {
-                LOTRMod.LOGGER.info("DEBUG: InputStream opened, attempting to read image...");
                 landmaskImage = ImageIO.read(stream);
             }
 
             if (landmaskImage == null) {
-                LOTRMod.LOGGER.error("Failed to read landmask image - file may be corrupted or not a valid PNG");
-                createFallbackImage();
-                return;
+                LOTRMod.LOGGER.error("Failed to read landmask image from resource manager");
+                return false;
             }
 
             imageWidth = landmaskImage.getWidth();
@@ -100,24 +72,78 @@ public class LandmaskLoader {
             loaded = true;
 
             LOTRMod.LOGGER.info("========================================");
-            LOTRMod.LOGGER.info("LANDMASK LOADED SUCCESSFULLY!");
+            LOTRMod.LOGGER.info("LANDMASK LOADED FROM RESOURCE MANAGER!");
             LOTRMod.LOGGER.info("Image size: {}x{} pixels", imageWidth, imageHeight);
             LOTRMod.LOGGER.info("World size: {}x{} blocks", 
                 imageWidth * BLOCKS_PER_PIXEL, 
                 imageHeight * BLOCKS_PER_PIXEL);
             LOTRMod.LOGGER.info("========================================");
             
+            return true;
+            
         } catch (Exception e) {
-            LOTRMod.LOGGER.error("Failed to load landmask image", e);
-            createFallbackImage();
+            LOTRMod.LOGGER.warn("Error loading from resource manager: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private static boolean tryLoadFromFilesystem() {
+        try {
+            LOTRMod.LOGGER.info("Attempting to load landmask from filesystem (development mode)...");
+            
+            // Try multiple possible locations
+            String[] possiblePaths = {
+                "src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png",
+                "../src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png",
+                "../../src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png"
+            };
+            
+            for (String pathStr : possiblePaths) {
+                Path path = Paths.get(pathStr);
+                LOTRMod.LOGGER.info("Trying path: {}", path.toAbsolutePath());
+                
+                if (Files.exists(path)) {
+                    LOTRMod.LOGGER.info("Found file at: {}", path.toAbsolutePath());
+                    
+                    try (InputStream stream = Files.newInputStream(path)) {
+                        landmaskImage = ImageIO.read(stream);
+                    }
+                    
+                    if (landmaskImage != null) {
+                        imageWidth = landmaskImage.getWidth();
+                        imageHeight = landmaskImage.getHeight();
+                        loaded = true;
+
+                        LOTRMod.LOGGER.info("========================================");
+                        LOTRMod.LOGGER.info("LANDMASK LOADED FROM FILESYSTEM!");
+                        LOTRMod.LOGGER.info("Path: {}", path.toAbsolutePath());
+                        LOTRMod.LOGGER.info("Image size: {}x{} pixels", imageWidth, imageHeight);
+                        LOTRMod.LOGGER.info("World size: {}x{} blocks", 
+                            imageWidth * BLOCKS_PER_PIXEL, 
+                            imageHeight * BLOCKS_PER_PIXEL);
+                        LOTRMod.LOGGER.info("========================================");
+                        
+                        return true;
+                    }
+                }
+            }
+            
+            LOTRMod.LOGGER.warn("Landmask file not found in any filesystem location");
+            return false;
+            
+        } catch (Exception e) {
+            LOTRMod.LOGGER.error("Error loading from filesystem", e);
+            return false;
         }
     }
 
     private static void createFallbackImage() {
-        LOTRMod.LOGGER.warn("Using fallback landmask (all ocean) - dimension will generate as ocean only");
-        // Create a fallback small image so the game doesn't crash
+        LOTRMod.LOGGER.warn("========================================");
+        LOTRMod.LOGGER.warn("Using fallback landmask (all ocean)");
+        LOTRMod.LOGGER.warn("Dimension will generate as ocean only");
+        LOTRMod.LOGGER.warn("========================================");
+        
         landmaskImage = new BufferedImage(256, 256, BufferedImage.TYPE_INT_RGB);
-        // Fill with white (ocean)
         for (int x = 0; x < 256; x++) {
             for (int y = 0; y < 256; y++) {
                 landmaskImage.setRGB(x, y, 0xFFFFFF);
@@ -128,50 +154,30 @@ public class LandmaskLoader {
         loaded = false;
     }
 
-    /**
-     * Check if the given world coordinates should be land according to the landmask
-     * @param worldX X coordinate in the world
-     * @param worldZ Z coordinate in the world
-     * @return true if this coordinate should be land, false if it should be ocean
-     */
     public static boolean isLand(int worldX, int worldZ) {
         if (!loaded || landmaskImage == null) {
-            return false; // Default to ocean if image failed to load
+            return false;
         }
 
-        // Convert world coordinates to image coordinates
-        // Center the map at world origin (0, 0)
         int pixelX = (worldX / BLOCKS_PER_PIXEL) + (imageWidth / 2);
         int pixelZ = (worldZ / BLOCKS_PER_PIXEL) + (imageHeight / 2);
 
-        // Check if coordinates are within image bounds
         if (pixelX < 0 || pixelX >= imageWidth || pixelZ < 0 || pixelZ >= imageHeight) {
-            return false; // Outside the landmask = ocean
+            return false;
         }
 
-        // Sample the pixel color
         int rgb = landmaskImage.getRGB(pixelX, pixelZ);
-
-        // Extract color components
         int red = (rgb >> 16) & 0xFF;
         int green = (rgb >> 8) & 0xFF;
         int blue = rgb & 0xFF;
-
-        // Calculate brightness (darker = land, lighter = ocean)
-        // Black pixels (0,0,0) are land, white pixels (255,255,255) are ocean
         int brightness = (red + green + blue) / 3;
 
-        // Consider it land if the pixel is darker than 50% gray
         return brightness < 128;
     }
 
-    /**
-     * Get the brightness value at a specific coordinate (0-255)
-     * Used for smooth transitions and noise blending
-     */
     public static int getBrightness(int worldX, int worldZ) {
         if (!loaded || landmaskImage == null) {
-            return 255; // Return white (ocean) if not loaded
+            return 255;
         }
 
         int pixelX = (worldX / BLOCKS_PER_PIXEL) + (imageWidth / 2);
