@@ -27,7 +27,7 @@ public class LandmaskLoader {
      */
     public static void loadLandmask(ResourceManager resourceManager) {
         try {
-            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middleearth_landmask.png");
+            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middle_earth_landmask.png");
             InputStream stream = resourceManager.getResource(landmaskLocation)
                     .orElseThrow(() -> new RuntimeException("Landmask image not found: " + landmaskLocation))
                     .open();
