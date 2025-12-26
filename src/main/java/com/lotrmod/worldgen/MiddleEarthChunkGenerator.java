@@ -73,12 +73,12 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     // Lower values = more mixing, smaller islands/lakes
     private static final double LANDMASK_HEIGHT_BIAS = 15.0; // blocks
 
-    // OCEAN THRESHOLD: Brightness level above which we force ocean (no islands)
-    // 200 = Very strict (only pure white prevents islands)
-    // 180 = Medium (lighter grays prevent islands)
-    // 150 = Loose (even medium grays prevent islands)
+    // OCEAN THRESHOLD: Brightness level above which we force deep ocean (no islands)
+    // 220 = Very strict (only pure white prevents islands, allows coastal slopes)
+    // 200 = Medium (lighter grays prevent islands, may cut off coastal slopes)
+    // 180 = Loose (even medium grays prevent islands, definitely cuts slopes)
     // Adjust this if you still see unwanted islands in ocean areas
-    private static final double OCEAN_BRIGHTNESS_THRESHOLD = 200.0;
+    private static final double OCEAN_BRIGHTNESS_THRESHOLD = 220.0;
 
     // ========================================
     // MULTI-SCALE NOISE PARAMETERS
@@ -253,27 +253,33 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * ISLAND PREVENTION: Pure ocean areas (very white on landmask) are forced to be ocean,
      * preventing random islands from forming in the middle of the sea.
      *
+     * COASTAL SLOPES: Near-coast areas allow natural terrain generation, creating gradual
+     * underwater slopes instead of cliff drop-offs at the waterline.
+     *
      * @param worldX The X coordinate in world space
      * @param worldZ The Z coordinate in world space
      * @return The terrain height (Y coordinate) at this position
      */
     private int getTerrainHeight(int worldX, int worldZ) {
         // =====================================
-        // STEP 0: Check if we're in pure ocean
+        // STEP 0: Check if we're in deep ocean
         // =====================================
-        // If the landmask clearly indicates ocean, force it to be ocean
-        // This prevents random islands from forming in open water
+        // Only force ocean floor in VERY white areas (deep ocean)
+        // This prevents islands while allowing natural slopes near coasts
         
         if (LandmaskLoader.isLoaded()) {
             double rawBrightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
             
-            // If brightness is very high (very white = definitely ocean), force ocean
+            // Deep ocean (brightness > 220) - force flat ocean floor, no islands
+            // Brightness 220+ = pure white = definitely deep ocean
             if (rawBrightness > OCEAN_BRIGHTNESS_THRESHOLD) {
-                return SEA_LEVEL - 20; // Force below sea level, no islands allowed
+                return SEA_LEVEL - 25; // Force below sea level, no islands allowed
             }
             
-            // If brightness is very low (very black = definitely land), continue normally
-            // If brightness is in between, it's a coastline - continue normally with noise
+            // Coastal zone (brightness 150-220) - allow natural terrain
+            // This creates gradual underwater slopes at beaches
+            
+            // Land (brightness < 150) - allow natural terrain
         }
         
         // =====================================
