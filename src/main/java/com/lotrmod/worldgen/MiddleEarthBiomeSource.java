@@ -19,21 +19,24 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     public static final MapCodec<MiddleEarthBiomeSource> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
                     Biome.CODEC.fieldOf("ocean_biome").forGetter(source -> source.oceanBiome),
-                    Biome.CODEC.fieldOf("land_biome").forGetter(source -> source.landBiome)
+                    Biome.CODEC.fieldOf("land_biome").forGetter(source -> source.landBiome),
+                    Biome.CODEC.fieldOf("beach_biome").forGetter(source -> source.beachBiome)
             ).apply(instance, MiddleEarthBiomeSource::new)
     );
 
     private final Holder<Biome> oceanBiome;
     private final Holder<Biome> landBiome;
+    private final Holder<Biome> beachBiome;
 
-    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome) {
+    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome) {
         this.oceanBiome = oceanBiome;
         this.landBiome = landBiome;
+        this.beachBiome = beachBiome;
     }
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        return Stream.of(oceanBiome, landBiome);
+        return Stream.of(oceanBiome, landBiome, beachBiome);
     }
 
     @Override
@@ -41,36 +44,48 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         return CODEC;
     }
 
-   @Override
-public Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.Sampler sampler) {
-    int worldX = x << 2;
-    int worldZ = z << 2;
+    @Override
+    public Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.Sampler sampler) {
+        int worldX = x << 2;
+        int worldZ = z << 2;
 
-    // Use the same height calculation as terrain generation
-    // This ensures biomes match the actual terrain
-    double height = getTerrainHeightForBiome(worldX, worldZ);
-    
-    if (height > 63) { // Above sea level = land biome
-        return landBiome;
-    }
-    return oceanBiome;
-}
+        // Get actual terrain height at this position
+        int terrainHeight = getTerrainHeightForBiome(worldX, worldZ);
 
-// Add this helper method to match the chunk generator's logic
-private double getTerrainHeightForBiome(int worldX, int worldZ) {
-    // Copy the same noise calculation from MiddleEarthChunkGenerator
-    // You'll need to create noise generators in this class too
-    
-    // Simple approximation using landmask:
-    if (!LandmaskLoader.isLoaded()) {
-        return 50; // Below sea level
+        // SEA_LEVEL is 63
+        // High ground (5+ blocks above sea level) = Plains
+        if (terrainHeight >= 68) {
+            return landBiome;
+        }
+        // Beach zone (3 blocks below to 5 blocks above sea level) = Beach
+        else if (terrainHeight >= 60) {
+            return beachBiome;
+        }
+        // Deep water = Ocean
+        else {
+            return oceanBiome;
+        }
     }
-    
-    int brightness = LandmaskLoader.getBrightness(worldX, worldZ);
-    double normalizedBrightness = brightness / 255.0;
-    double landmaskBias = (1.0 - normalizedBrightness) * 30;
-    
-    // Rough approximation - if bias suggests land, return above sea level
-    return 63 + landmaskBias;
-}
+
+    /**
+     * Helper method to get terrain height for biome assignment.
+     * This needs to replicate the logic from MiddleEarthChunkGenerator.getTerrainHeight()
+     * WITHOUT creating circular dependencies.
+     */
+    private int getTerrainHeightForBiome(int worldX, int worldZ) {
+        if (!LandmaskLoader.isLoaded()) {
+            return 50; // Default ocean
+        }
+
+        // Simple approximation using landmask brightness
+        double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+
+        // Very rough height estimate based on landmask
+        // Black (0) → land (~73), White (255) → ocean (~40)
+        // This doesn't need to be perfect, just approximate for biome assignment
+        double normalized = 1.0 - (brightness / 127.5);
+        double estimatedHeight = 63 + (normalized * 15);
+
+        return (int) estimatedHeight;
+    }
 }
