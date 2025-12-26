@@ -339,7 +339,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Between these values, we blend smoothly from land to ocean
             final double LAND_THRESHOLD = 150.0;   // Natural land terrain
             final double OCEAN_THRESHOLD = 220.0;  // Force deep ocean
-            final int OCEAN_FLOOR_DEPTH = SEA_LEVEL - 25; // Target ocean depth
+            final int OCEAN_FLOOR_DEPTH = SEA_LEVEL - 15; // Target ocean depth
 
             if (brightness > LAND_THRESHOLD) {
                 // We're in the transition zone or deep ocean
