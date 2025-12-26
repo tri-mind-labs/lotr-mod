@@ -195,6 +195,81 @@ public class LandmaskLoader {
         return (red + green + blue) / 3;
     }
 
+    /**
+     * Get interpolated brightness at a world position using bilinear interpolation.
+     * This eliminates the 16x16 chunk artifacts by smoothly blending between pixels.
+     *
+     * @param worldX The X coordinate in world space
+     * @param worldZ The Z coordinate in world space
+     * @return Interpolated brightness value (0-255)
+     */
+    public static double getInterpolatedBrightness(int worldX, int worldZ) {
+        if (!loaded || landmaskImage == null) {
+            return 255.0;
+        }
+
+        // CRITICAL: Use floating-point division for sub-pixel sampling
+        // This allows us to sample BETWEEN pixels, not just at pixel centers
+        double exactPixelX = worldX / (double) BLOCKS_PER_PIXEL;
+        double exactPixelZ = worldZ / (double) BLOCKS_PER_PIXEL;
+
+        // Convert to image coordinates (centered at 0,0)
+        exactPixelX += imageWidth / 2.0;
+        exactPixelZ += imageHeight / 2.0;
+
+        // Get the 4 surrounding pixel coordinates for bilinear interpolation
+        int x0 = (int) Math.floor(exactPixelX);
+        int z0 = (int) Math.floor(exactPixelZ);
+        int x1 = x0 + 1;
+        int z1 = z0 + 1;
+
+        // Get fractional parts for interpolation weights
+        // fx and fz range from 0.0 to 1.0 representing position between pixels
+        double fx = exactPixelX - x0;
+        double fz = exactPixelZ - z0;
+
+        // Sample 4 surrounding pixels (with bounds checking)
+        double b00 = getPixelBrightness(x0, z0); // top-left
+        double b10 = getPixelBrightness(x1, z0); // top-right
+        double b01 = getPixelBrightness(x0, z1); // bottom-left
+        double b11 = getPixelBrightness(x1, z1); // bottom-right
+
+        // Bilinear interpolation:
+        // 1. Interpolate along the top edge (between b00 and b10)
+        double b0 = b00 * (1.0 - fx) + b10 * fx;
+
+        // 2. Interpolate along the bottom edge (between b01 and b11)
+        double b1 = b01 * (1.0 - fx) + b11 * fx;
+
+        // 3. Interpolate between the two edge values
+        double brightness = b0 * (1.0 - fz) + b1 * fz;
+
+        return brightness;
+    }
+
+    /**
+     * Get brightness at a specific pixel coordinate with bounds checking.
+     * Returns 255 (white/ocean) for out-of-bounds pixels.
+     *
+     * @param pixelX The X pixel coordinate
+     * @param pixelZ The Z pixel coordinate
+     * @return Brightness value (0-255)
+     */
+    private static double getPixelBrightness(int pixelX, int pixelZ) {
+        // Bounds checking - return white (ocean) for pixels outside the image
+        if (pixelX < 0 || pixelX >= imageWidth || pixelZ < 0 || pixelZ >= imageHeight) {
+            return 255.0;
+        }
+
+        // Sample the pixel and calculate brightness
+        int rgb = landmaskImage.getRGB(pixelX, pixelZ);
+        int red = (rgb >> 16) & 0xFF;
+        int green = (rgb >> 8) & 0xFF;
+        int blue = rgb & 0xFF;
+
+        return (red + green + blue) / 3.0;
+    }
+
     public static boolean isLoaded() {
         return loaded;
     }
