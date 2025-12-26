@@ -33,7 +33,24 @@ public class LandmaskLoader {
                 "textures/landmask/middleearth_landmask.png"
             );
 
-            LOTRMod.LOGGER.info("Attempting to load landmask from: {}", landmaskLocation);
+            LOTRMod.LOGGER.info("========================================");
+            LOTRMod.LOGGER.info("DEBUG: Attempting to load landmask");
+            LOTRMod.LOGGER.info("DEBUG: Resource location: {}", landmaskLocation);
+            LOTRMod.LOGGER.info("DEBUG: Full path: {}", landmaskLocation.toString());
+            
+            // List all available resources to debug
+            try {
+                var allResources = resourceManager.listResources(
+                    "textures/landmask",
+                    path -> path.getPath().endsWith(".png")
+                );
+                LOTRMod.LOGGER.info("DEBUG: Found {} resources in textures/landmask", allResources.size());
+                allResources.forEach((location, resource) -> {
+                    LOTRMod.LOGGER.info("DEBUG: Available resource: {}", location);
+                });
+            } catch (Exception e) {
+                LOTRMod.LOGGER.error("DEBUG: Error listing resources", e);
+            }
 
             Optional<Resource> resourceOpt = resourceManager.getResource(landmaskLocation);
 
@@ -49,8 +66,10 @@ public class LandmaskLoader {
             }
 
             Resource resource = resourceOpt.get();
+            LOTRMod.LOGGER.info("DEBUG: Resource found! Source: {}", resource.sourcePackId());
             
             try (InputStream stream = resource.open()) {
+                LOTRMod.LOGGER.info("DEBUG: InputStream opened, attempting to read image...");
                 landmaskImage = ImageIO.read(stream);
             }
 
