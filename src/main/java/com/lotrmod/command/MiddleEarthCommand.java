@@ -5,21 +5,20 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.portal.TeleportTransition;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Command to teleport players to Middle-earth dimension
  */
 public class MiddleEarthCommand {
     public static final ResourceKey<Level> MIDDLEEARTH_DIMENSION =
-            ResourceKey.create(Level.DIMENSION, ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "middleearth"));
+            ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "middleearth"));
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
@@ -50,17 +49,14 @@ public class MiddleEarthCommand {
                                 }
                             }
 
-                            Vec3 destination = new Vec3(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
-                            TeleportTransition transition = new TeleportTransition(
-                                    middleEarth,
-                                    destination,
-                                    Vec3.ZERO,
+                            // Teleport the player
+                            player.teleportTo(middleEarth,
+                                    spawnPos.getX() + 0.5,
+                                    spawnPos.getY(),
+                                    spawnPos.getZ() + 0.5,
                                     player.getYRot(),
-                                    player.getXRot(),
-                                    TeleportTransition.DO_NOTHING
-                            );
+                                    player.getXRot());
 
-                            player.changeDimension(transition);
                             source.sendSuccess(() -> Component.literal("Welcome to Middle-earth!"), true);
 
                             return 1;
