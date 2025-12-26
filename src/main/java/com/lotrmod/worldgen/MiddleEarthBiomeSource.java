@@ -73,3 +73,4 @@ private double getTerrainHeightForBiome(int worldX, int worldZ) {
     // Rough approximation - if bias suggests land, return above sea level
     return 63 + landmaskBias;
 }
+}
