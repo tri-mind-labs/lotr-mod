@@ -36,20 +36,36 @@ public class LandmaskLoader {
             LOTRMod.LOGGER.info("========================================");
             LOTRMod.LOGGER.info("DEBUG: Attempting to load landmask");
             LOTRMod.LOGGER.info("DEBUG: Resource location: {}", landmaskLocation);
-            LOTRMod.LOGGER.info("DEBUG: Full path: {}", landmaskLocation.toString());
+            LOTRMod.LOGGER.info("DEBUG: Namespace: {}", landmaskLocation.getNamespace());
+            LOTRMod.LOGGER.info("DEBUG: Path: {}", landmaskLocation.getPath());
             
-            // List all available resources to debug
+            // Debug: List ALL resources in lotrmod namespace
             try {
-                var allResources = resourceManager.listResources(
-                    "textures/landmask",
-                    path -> path.getPath().endsWith(".png")
+                LOTRMod.LOGGER.info("DEBUG: Listing ALL lotrmod resources...");
+                var allModResources = resourceManager.listResources(
+                    "textures",
+                    path -> path.getNamespace().equals(LOTRMod.MODID)
                 );
-                LOTRMod.LOGGER.info("DEBUG: Found {} resources in textures/landmask", allResources.size());
-                allResources.forEach((location, resource) -> {
-                    LOTRMod.LOGGER.info("DEBUG: Available resource: {}", location);
+                LOTRMod.LOGGER.info("DEBUG: Found {} total lotrmod texture resources", allModResources.size());
+                allModResources.forEach((location, resource) -> {
+                    LOTRMod.LOGGER.info("DEBUG:   - {}", location);
                 });
             } catch (Exception e) {
-                LOTRMod.LOGGER.error("DEBUG: Error listing resources", e);
+                LOTRMod.LOGGER.error("DEBUG: Error listing all resources", e);
+            }
+            
+            // List resources in landmask folder specifically
+            try {
+                var landmaskResources = resourceManager.listResources(
+                    "textures/landmask",
+                    path -> path.getNamespace().equals(LOTRMod.MODID) && path.getPath().endsWith(".png")
+                );
+                LOTRMod.LOGGER.info("DEBUG: Found {} resources in textures/landmask", landmaskResources.size());
+                landmaskResources.forEach((location, resource) -> {
+                    LOTRMod.LOGGER.info("DEBUG: Landmask resource: {}", location);
+                });
+            } catch (Exception e) {
+                LOTRMod.LOGGER.error("DEBUG: Error listing landmask resources", e);
             }
 
             Optional<Resource> resourceOpt = resourceManager.getResource(landmaskLocation);
