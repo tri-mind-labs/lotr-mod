@@ -247,74 +247,92 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * @param worldZ The Z coordinate in world space
      * @return The terrain height (Y coordinate) at this position
      */
-    private int getTerrainHeight(int worldX, int worldZ) {
-        // =====================================
-        // STEP 1: Generate base terrain using multi-octave noise
-        // =====================================
-        // This creates natural, organic terrain variation similar to vanilla Minecraft
-        // Each noise layer adds features at a different scale
-
-        // Large scale: Major landforms and continental shapes
-        double largeScale = 1.0 / LARGE_SCALE_WAVELENGTH;
-        double largeNoise = this.largeScaleCoastNoise.getValue(
-            worldX * largeScale,
-            worldZ * largeScale,
-            false
-        ) * LARGE_SCALE_AMPLITUDE;
-
-        // Medium scale: Hills, valleys, bays, peninsulas
-        double mediumScale = 1.0 / MEDIUM_SCALE_WAVELENGTH;
-        double mediumNoise = this.mediumScaleCoastNoise.getValue(
-            worldX * mediumScale,
-            worldZ * mediumScale,
-            false
-        ) * MEDIUM_SCALE_AMPLITUDE;
-
-        // Small scale: Detailed bumps and coastline irregularity
-        double smallScale = 1.0 / SMALL_SCALE_WAVELENGTH;
-        double smallNoise = this.smallScaleCoastNoise.getValue(
-            worldX * smallScale,
-            worldZ * smallScale,
-            false
-        ) * SMALL_SCALE_AMPLITUDE;
-
-        // Fine detail: Micro-variations for natural texture
-        double detailScale = 1.0 / DETAIL_SCALE_WAVELENGTH;
-        double detailNoise = this.detailNoise.getValue(
-            worldX * detailScale,
-            worldZ * detailScale,
-            false
-        ) * DETAIL_SCALE_AMPLITUDE;
-
-        // Combine all noise layers into base terrain height
-        // Noise values center around 0, so this centers around sea level
-        double baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
-
-        // =====================================
-        // STEP 2: Get landmask height bias
-        // =====================================
-        // The landmask shifts terrain up (for land areas) or down (for ocean areas)
-        // This provides gentle guidance while letting the noise create the actual shapes
-
-        double landmaskBias = getLandmaskHeightBias(worldX, worldZ);
-
-        // =====================================
-        // STEP 3: Combine base terrain with landmask influence
-        // =====================================
-        // Blend the natural noise-based terrain with the landmask guidance
-        // LANDMASK_INFLUENCE_STRENGTH controls how much we follow the map vs. pure noise
-
-        double finalHeight = baseTerrainHeight + (landmaskBias * LANDMASK_INFLUENCE_STRENGTH);
-
-        // =====================================
-        // STEP 4: Return final height
-        // =====================================
-        // The coastline forms naturally where this height crosses sea level (Y=63)
-        // Above sea level = land, Below sea level = ocean
-        // No hard boundaries, just continuous terrain!
-
-        return (int) Math.round(finalHeight);
+private int getTerrainHeight(int worldX, int worldZ) {
+    // =====================================
+    // STEP 0: Check if we're in pure ocean - NEW!
+    // =====================================
+    // If the landmask clearly indicates ocean, force it to be ocean
+    // This prevents random islands from forming in open water
+    
+    if (LandmaskLoader.isLoaded()) {
+        double rawBrightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+        
+        // If brightness is very high (very white = definitely ocean), force ocean
+        if (rawBrightness > 200) {
+            return SEA_LEVEL - 20; // Force below sea level, no islands
+        }
+        
+        // If brightness is very low (very black = definitely land), continue normally
+        // If brightness is in between (50-200), it's a coastline - continue normally
     }
+    
+    // =====================================
+    // STEP 1: Generate base terrain using multi-octave noise
+    // =====================================
+    // This creates natural, organic terrain variation similar to vanilla Minecraft
+    // Each noise layer adds features at a different scale
+
+    // Large scale: Major landforms and continental shapes
+    double largeScale = 1.0 / LARGE_SCALE_WAVELENGTH;
+    double largeNoise = this.largeScaleCoastNoise.getValue(
+        worldX * largeScale,
+        worldZ * largeScale,
+        false
+    ) * LARGE_SCALE_AMPLITUDE;
+
+    // Medium scale: Hills, valleys, bays, peninsulas
+    double mediumScale = 1.0 / MEDIUM_SCALE_WAVELENGTH;
+    double mediumNoise = this.mediumScaleCoastNoise.getValue(
+        worldX * mediumScale,
+        worldZ * mediumScale,
+        false
+    ) * MEDIUM_SCALE_AMPLITUDE;
+
+    // Small scale: Detailed bumps and coastline irregularity
+    double smallScale = 1.0 / SMALL_SCALE_WAVELENGTH;
+    double smallNoise = this.smallScaleCoastNoise.getValue(
+        worldX * smallScale,
+        worldZ * smallScale,
+        false
+    ) * SMALL_SCALE_AMPLITUDE;
+
+    // Fine detail: Micro-variations for natural texture
+    double detailScale = 1.0 / DETAIL_SCALE_WAVELENGTH;
+    double detailNoise = this.detailNoise.getValue(
+        worldX * detailScale,
+        worldZ * detailScale,
+        false
+    ) * DETAIL_SCALE_AMPLITUDE;
+
+    // Combine all noise layers into base terrain height
+    // Noise values center around 0, so this centers around sea level
+    double baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
+
+    // =====================================
+    // STEP 2: Get landmask height bias
+    // =====================================
+    // The landmask shifts terrain up (for land areas) or down (for ocean areas)
+    // This provides gentle guidance while letting the noise create the actual shapes
+
+    double landmaskBias = getLandmaskHeightBias(worldX, worldZ);
+
+    // =====================================
+    // STEP 3: Combine base terrain with landmask influence
+    // =====================================
+    // Blend the natural noise-based terrain with the landmask guidance
+    // LANDMASK_INFLUENCE_STRENGTH controls how much we follow the map vs. pure noise
+
+    double finalHeight = baseTerrainHeight + (landmaskBias * LANDMASK_INFLUENCE_STRENGTH);
+
+    // =====================================
+    // STEP 4: Return final height
+    // =====================================
+    // The coastline forms naturally where this height crosses sea level (Y=63)
+    // Above sea level = land, Below sea level = ocean
+    // No hard boundaries, just continuous terrain!
+
+    return (int) Math.round(finalHeight);
+}
 
     /**
      * Get the height bias from the landmask at a given position.
