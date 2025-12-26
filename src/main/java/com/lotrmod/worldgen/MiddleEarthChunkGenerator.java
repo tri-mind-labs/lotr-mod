@@ -134,7 +134,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
     @Override
     public void buildSurface(WorldGenRegion level, StructureManager structureManager, RandomState random, ChunkAccess chunk) {
-        // Build the surface - add grass on land, gravel in ocean
         ChunkPos chunkPos = chunk.getPos();
         int startX = chunkPos.getMinBlockX();
         int startZ = chunkPos.getMinBlockZ();
@@ -145,6 +144,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             for (int z = 0; z < 16; z++) {
                 int worldX = startX + x;
                 int worldZ = startZ + z;
+                int terrainHeight = getTerrainHeight(worldX, worldZ);
 
                 // Find the top solid block
                 for (int y = chunk.getMaxBuildHeight() - 1; y >= chunk.getMinBuildHeight(); y--) {
@@ -152,24 +152,28 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                     BlockState state = chunk.getBlockState(pos);
 
                     if (state.is(Blocks.STONE)) {
-                        // This is the surface
-                        boolean isLand = isLandAt(worldX, worldZ);
-
-                        if (isLand && y >= SEA_LEVEL) {
-                            // Land surface - add grass
+                        // Determine surface based on height
+                        if (terrainHeight >= 68) {
+                            // High ground - grass and dirt (plains)
                             chunk.setBlockState(pos, Blocks.GRASS_BLOCK.defaultBlockState(), false);
                             pos.setY(y - 1);
                             chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
                             pos.setY(y - 2);
                             chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                        } else if (y < SEA_LEVEL) {
-                            // Underwater - add gravel/sand
-                            chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
-                        } else {
-                            // Beach/shore - add sand
+                            pos.setY(y - 3);
+                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
+                        }
+                        else if (terrainHeight >= 60) {
+                            // Beach zone - sand
                             chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
                             pos.setY(y - 1);
+                            chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
+                            pos.setY(y - 2);
                             chunk.setBlockState(pos, Blocks.SANDSTONE.defaultBlockState(), false);
+                        }
+                        else {
+                            // Ocean floor - gravel
+                            chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
                         }
                         break;
                     }
