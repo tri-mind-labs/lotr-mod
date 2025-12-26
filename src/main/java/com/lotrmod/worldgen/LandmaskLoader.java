@@ -2,12 +2,13 @@ package com.lotrmod.worldgen;
 
 import com.lotrmod.LOTRMod;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
 
 /**
  * Loads and provides access to the landmask texture that defines where land should generate
@@ -27,28 +28,31 @@ public class LandmaskLoader {
      */
     public static void loadLandmask(ResourceManager resourceManager) {
         try {
-            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middleearth_landmask.png");
+            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(
+                LOTRMod.MODID, 
+                "textures/landmask/middleearth_landmask.png"
+            );
 
             LOTRMod.LOGGER.info("Attempting to load landmask from: {}", landmaskLocation);
-            LOTRMod.LOGGER.info("Expected file location: src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png");
 
-            var resource = resourceManager.getResource(landmaskLocation);
+            Optional<Resource> resourceOpt = resourceManager.getResource(landmaskLocation);
 
-            if (resource.isEmpty()) {
+            if (resourceOpt.isEmpty()) {
                 LOTRMod.LOGGER.error("========================================");
                 LOTRMod.LOGGER.error("LANDMASK IMAGE NOT FOUND!");
-                LOTRMod.LOGGER.error("Please place your landmask PNG file at:");
-                LOTRMod.LOGGER.error("  src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png");
-                LOTRMod.LOGGER.error("The file must be named exactly: middleearth_landmask.png");
-                LOTRMod.LOGGER.error("After adding the file, rebuild the mod.");
+                LOTRMod.LOGGER.error("Resource location: {}", landmaskLocation);
+                LOTRMod.LOGGER.error("Please ensure the file exists in the mod JAR at:");
+                LOTRMod.LOGGER.error("  assets/lotrmod/textures/landmask/middleearth_landmask.png");
                 LOTRMod.LOGGER.error("========================================");
                 createFallbackImage();
                 return;
             }
 
-            InputStream stream = resource.get().open();
-            landmaskImage = ImageIO.read(stream);
-            stream.close();
+            Resource resource = resourceOpt.get();
+            
+            try (InputStream stream = resource.open()) {
+                landmaskImage = ImageIO.read(stream);
+            }
 
             if (landmaskImage == null) {
                 LOTRMod.LOGGER.error("Failed to read landmask image - file may be corrupted or not a valid PNG");
@@ -60,10 +64,14 @@ public class LandmaskLoader {
             imageHeight = landmaskImage.getHeight();
             loaded = true;
 
-            LOTRMod.LOGGER.info("Successfully loaded landmask: {}x{} pixels ({}x{} blocks)",
-                    imageWidth, imageHeight,
-                    imageWidth * BLOCKS_PER_PIXEL,
-                    imageHeight * BLOCKS_PER_PIXEL);
+            LOTRMod.LOGGER.info("========================================");
+            LOTRMod.LOGGER.info("LANDMASK LOADED SUCCESSFULLY!");
+            LOTRMod.LOGGER.info("Image size: {}x{} pixels", imageWidth, imageHeight);
+            LOTRMod.LOGGER.info("World size: {}x{} blocks", 
+                imageWidth * BLOCKS_PER_PIXEL, 
+                imageHeight * BLOCKS_PER_PIXEL);
+            LOTRMod.LOGGER.info("========================================");
+            
         } catch (Exception e) {
             LOTRMod.LOGGER.error("Failed to load landmask image", e);
             createFallbackImage();
