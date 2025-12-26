@@ -34,31 +34,22 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-            
-            // CRITICAL: Ensure mod resources are loaded
-            modSource project.sourceSets.main
         }
 
         server {
             server()
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-            
-            modSource project.sourceSets.main
         }
 
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-            
-            modSource project.sourceSets.main
         }
 
         data {
             data()
             programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
-            
-            modSource project.sourceSets.main
         }
 
         configureEach {
