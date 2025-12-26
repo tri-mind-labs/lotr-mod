@@ -52,7 +52,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     private final PerlinSimplexNoise smallScaleCoastNoise;   // Detailed coastline jaggedness
 
     // Sea level for the world
-    private static final int SEA_LEVEL = 63;
+    private static final int SEA_LEVEL = 53;
 
     // ========================================
     // TERRAIN GENERATION TUNING PARAMETERS
