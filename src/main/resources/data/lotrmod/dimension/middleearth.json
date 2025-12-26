@@ -1,0 +1,12 @@
+{
+  "type": "lotrmod:middleearth",
+  "generator": {
+    "type": "lotrmod:middleearth",
+    "biome_source": {
+      "type": "lotrmod:middleearth",
+      "ocean_biome": "minecraft:ocean",
+      "land_biome": "minecraft:plains"
+    },
+    "settings": "lotrmod:middleearth"
+  }
+}
