@@ -132,51 +132,61 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // No carvers for now - we'll add caves later if needed
     }
 
-    @Override
-    public void buildSurface(WorldGenRegion level, StructureManager structureManager, RandomState random, ChunkAccess chunk) {
-        // Build the surface - add grass on land, gravel in ocean
-        ChunkPos chunkPos = chunk.getPos();
-        int startX = chunkPos.getMinBlockX();
-        int startZ = chunkPos.getMinBlockZ();
+@Override
+public void buildSurface(WorldGenRegion level, StructureManager structureManager, RandomState random, ChunkAccess chunk) {
+    ChunkPos chunkPos = chunk.getPos();
+    int startX = chunkPos.getMinBlockX();
+    int startZ = chunkPos.getMinBlockZ();
 
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+    BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                int worldX = startX + x;
-                int worldZ = startZ + z;
+    for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+            int worldX = startX + x;
+            int worldZ = startZ + z;
 
-                // Find the top solid block
-                for (int y = chunk.getMaxBuildHeight() - 1; y >= chunk.getMinBuildHeight(); y--) {
-                    pos.set(startX + x, y, startZ + z);
-                    BlockState state = chunk.getBlockState(pos);
+            int terrainHeight = getTerrainHeight(worldX, worldZ);
 
-                    if (state.is(Blocks.STONE)) {
-                        // This is the surface
-                        boolean isLand = isLandAt(worldX, worldZ);
+            // Find the top solid block
+            for (int y = chunk.getMaxBuildHeight() - 1; y >= chunk.getMinBuildHeight(); y--) {
+                pos.set(startX + x, y, startZ + z);
+                BlockState state = chunk.getBlockState(pos);
 
-                        if (isLand && y >= SEA_LEVEL) {
-                            // Land surface - add grass
-                            chunk.setBlockState(pos, Blocks.GRASS_BLOCK.defaultBlockState(), false);
-                            pos.setY(y - 1);
-                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                            pos.setY(y - 2);
-                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                        } else if (y < SEA_LEVEL) {
-                            // Underwater - add gravel/sand
-                            chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
-                        } else {
-                            // Beach/shore - add sand
-                            chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
-                            pos.setY(y - 1);
-                            chunk.setBlockState(pos, Blocks.SANDSTONE.defaultBlockState(), false);
-                        }
-                        break;
+                if (state.is(Blocks.STONE)) {
+                    // Calculate depth below water (if underwater)
+                    int depthBelowWater = SEA_LEVEL - y;
+                    
+                    if (y >= SEA_LEVEL) {
+                        // ABOVE WATER - Land surface
+                        chunk.setBlockState(pos, Blocks.GRASS_BLOCK.defaultBlockState(), false);
+                        pos.setY(y - 1);
+                        chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
+                        pos.setY(y - 2);
+                        chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
+                        pos.setY(y - 3);
+                        chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
+                        
+                    } else if (depthBelowWater <= 3) {
+                        // SHALLOW WATER (0-3 blocks deep) - Beach/coastal zone
+                        // Use sand to create smooth transition
+                        chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
+                        pos.setY(y - 1);
+                        chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
+                        pos.setY(y - 2);
+                        chunk.setBlockState(pos, Blocks.SANDSTONE.defaultBlockState(), false);
+                        
+                    } else {
+                        // DEEP WATER (4+ blocks deep) - Ocean floor
+                        chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
+                        pos.setY(y - 1);
+                        chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
                     }
+                    break;
                 }
             }
         }
     }
+}
 
     @Override
     public void spawnOriginalMobs(WorldGenRegion level) {
