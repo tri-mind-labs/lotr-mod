@@ -27,36 +27,62 @@ public class LandmaskLoader {
      */
     public static void loadLandmask(ResourceManager resourceManager) {
         try {
-            ResourceLocation expectedLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middleearth_landmask.png");
-            ResourceLocation landmaskLocation = resourceManager.getResource(expectedLocation)
-                    .map(resource -> expectedLocation)
-                    .or(() -> resourceManager.listResources("textures/landmask",
-                            path -> path.getPath().endsWith(".png") && path.getNamespace().equals(LOTRMod.MODID))
-                            .keySet()
-                            .stream()
-                            .findFirst())
-                    .orElseThrow(() -> new RuntimeException("Landmask image not found: " + expectedLocation));
-            InputStream stream = resourceManager.getResource(landmaskLocation)
-                    .orElseThrow(() -> new RuntimeException("Landmask image not found: " + landmaskLocation))
-                    .open();
+            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middleearth_landmask.png");
 
+            LOTRMod.LOGGER.info("Attempting to load landmask from: {}", landmaskLocation);
+            LOTRMod.LOGGER.info("Expected file location: src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png");
+
+            var resource = resourceManager.getResource(landmaskLocation);
+
+            if (resource.isEmpty()) {
+                LOTRMod.LOGGER.error("========================================");
+                LOTRMod.LOGGER.error("LANDMASK IMAGE NOT FOUND!");
+                LOTRMod.LOGGER.error("Please place your landmask PNG file at:");
+                LOTRMod.LOGGER.error("  src/main/resources/assets/lotrmod/textures/landmask/middleearth_landmask.png");
+                LOTRMod.LOGGER.error("The file must be named exactly: middleearth_landmask.png");
+                LOTRMod.LOGGER.error("After adding the file, rebuild the mod.");
+                LOTRMod.LOGGER.error("========================================");
+                createFallbackImage();
+                return;
+            }
+
+            InputStream stream = resource.get().open();
             landmaskImage = ImageIO.read(stream);
+            stream.close();
+
+            if (landmaskImage == null) {
+                LOTRMod.LOGGER.error("Failed to read landmask image - file may be corrupted or not a valid PNG");
+                createFallbackImage();
+                return;
+            }
+
             imageWidth = landmaskImage.getWidth();
             imageHeight = landmaskImage.getHeight();
             loaded = true;
 
-            LOTRMod.LOGGER.info("Loaded landmask: {}x{} pixels ({}x{} blocks)",
+            LOTRMod.LOGGER.info("Successfully loaded landmask: {}x{} pixels ({}x{} blocks)",
                     imageWidth, imageHeight,
                     imageWidth * BLOCKS_PER_PIXEL,
                     imageHeight * BLOCKS_PER_PIXEL);
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOTRMod.LOGGER.error("Failed to load landmask image", e);
-            // Create a fallback small image so the game doesn't crash
-            landmaskImage = new BufferedImage(256, 256, BufferedImage.TYPE_INT_RGB);
-            imageWidth = 256;
-            imageHeight = 256;
-            loaded = false;
+            createFallbackImage();
         }
+    }
+
+    private static void createFallbackImage() {
+        LOTRMod.LOGGER.warn("Using fallback landmask (all ocean) - dimension will generate as ocean only");
+        // Create a fallback small image so the game doesn't crash
+        landmaskImage = new BufferedImage(256, 256, BufferedImage.TYPE_INT_RGB);
+        // Fill with white (ocean)
+        for (int x = 0; x < 256; x++) {
+            for (int y = 0; y < 256; y++) {
+                landmaskImage.setRGB(x, y, 0xFFFFFF);
+            }
+        }
+        imageWidth = 256;
+        imageHeight = 256;
+        loaded = false;
     }
 
     /**
