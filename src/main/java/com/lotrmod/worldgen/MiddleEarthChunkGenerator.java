@@ -266,27 +266,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      */
     private int getTerrainHeight(int worldX, int worldZ) {
         // =====================================
-        // STEP 0: Check if we're in deep ocean
-        // =====================================
-        // Only force ocean floor in VERY white areas (deep ocean)
-        // This prevents islands while allowing natural slopes near coasts
-        
-        if (LandmaskLoader.isLoaded()) {
-            double rawBrightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
-            
-            // Deep ocean (brightness > 220) - force flat ocean floor, no islands
-            // Brightness 220+ = pure white = definitely deep ocean
-            if (rawBrightness > OCEAN_BRIGHTNESS_THRESHOLD) {
-                return SEA_LEVEL - 25; // Force below sea level, no islands allowed
-            }
-            
-            // Coastal zone (brightness 150-220) - allow natural terrain
-            // This creates gradual underwater slopes at beaches
-            
-            // Land (brightness < 150) - allow natural terrain
-        }
-        
-        // =====================================
         // STEP 1: Generate base terrain using multi-octave noise
         // =====================================
         // This creates natural, organic terrain variation similar to vanilla Minecraft
@@ -345,11 +324,51 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double finalHeight = baseTerrainHeight + (landmaskBias * LANDMASK_INFLUENCE_STRENGTH);
 
         // =====================================
-        // STEP 4: Return final height
+        // STEP 4: Apply gradual ocean transition to prevent cliffs
+        // =====================================
+        // Instead of forcing deep ocean to a fixed height (which creates cliffs),
+        // we blend between natural terrain and ocean floor based on brightness.
+        // This creates smooth, gradual slopes from land down to ocean depth.
+
+        if (LandmaskLoader.isLoaded()) {
+            double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+
+            // Define the transition zone brightness thresholds
+            // LAND_THRESHOLD: Below this, terrain is completely natural (land)
+            // OCEAN_THRESHOLD: Above this, terrain is forced to ocean depth
+            // Between these values, we blend smoothly from land to ocean
+            final double LAND_THRESHOLD = 150.0;   // Natural land terrain
+            final double OCEAN_THRESHOLD = 220.0;  // Force deep ocean
+            final int OCEAN_FLOOR_DEPTH = SEA_LEVEL - 25; // Target ocean depth
+
+            if (brightness > LAND_THRESHOLD) {
+                // We're in the transition zone or deep ocean
+
+                if (brightness >= OCEAN_THRESHOLD) {
+                    // Deep ocean - force to ocean floor to prevent islands
+                    finalHeight = OCEAN_FLOOR_DEPTH;
+                } else {
+                    // Transition zone (150-220 brightness) - blend from natural terrain to ocean floor
+                    // Calculate blend factor: 0.0 at LAND_THRESHOLD, 1.0 at OCEAN_THRESHOLD
+                    double blendFactor = (brightness - LAND_THRESHOLD) / (OCEAN_THRESHOLD - LAND_THRESHOLD);
+
+                    // Smooth the blend using smoothstep function for more natural transitions
+                    // smoothstep(t) = 3t² - 2t³
+                    blendFactor = blendFactor * blendFactor * (3.0 - 2.0 * blendFactor);
+
+                    // Blend between natural terrain height and ocean floor
+                    finalHeight = finalHeight * (1.0 - blendFactor) + OCEAN_FLOOR_DEPTH * blendFactor;
+                }
+            }
+            // else: brightness <= LAND_THRESHOLD, use natural terrain (no modification)
+        }
+
+        // =====================================
+        // STEP 5: Return final height
         // =====================================
         // The coastline forms naturally where this height crosses sea level (Y=63)
         // Above sea level = land, Below sea level = ocean
-        // No hard boundaries, just continuous terrain!
+        // Gradual slopes prevent cliffs at biome boundaries!
 
         return (int) Math.round(finalHeight);
     }
