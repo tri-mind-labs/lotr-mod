@@ -323,6 +323,10 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * height modifier. Black areas (land) push terrain upward, white areas (ocean)
      * push terrain downward, with smooth gradients in between.
      *
+     * CRITICAL FIX: Uses bilinear interpolation to eliminate 16x16 chunk artifacts.
+     * Instead of sampling at pixel centers with integer division, we sample with
+     * floating-point precision and interpolate between 4 surrounding pixels.
+     *
      * @param worldX The X coordinate in world space
      * @param worldZ The Z coordinate in world space
      * @return Height bias in blocks (positive = push up toward land, negative = push down toward ocean)
@@ -332,8 +336,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             return 0.0; // No landmask = no bias, pure noise terrain
         }
 
-        // Get brightness from landmask (0 = black/land, 255 = white/ocean)
-        int brightness = LandmaskLoader.getBrightness(worldX, worldZ);
+        // Get INTERPOLATED brightness from landmask (0 = black/land, 255 = white/ocean)
+        // This is the critical fix - bilinear interpolation eliminates chunk boundaries
+        double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
 
         // Convert brightness to height bias
         // brightness 0 (black) → +LANDMASK_HEIGHT_BIAS (push terrain up)
