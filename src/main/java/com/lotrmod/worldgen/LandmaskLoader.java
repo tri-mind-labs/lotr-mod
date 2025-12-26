@@ -27,7 +27,15 @@ public class LandmaskLoader {
      */
     public static void loadLandmask(ResourceManager resourceManager) {
         try {
-            ResourceLocation landmaskLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "src/main/resources/assets/lotrmod/textures/landmask/middlearth_landmask.png");
+            ResourceLocation expectedLocation = ResourceLocation.fromNamespaceAndPath(LOTRMod.MODID, "textures/landmask/middleearth_landmask.png");
+            ResourceLocation landmaskLocation = resourceManager.getResource(expectedLocation)
+                    .map(resource -> expectedLocation)
+                    .or(() -> resourceManager.listResources("textures/landmask",
+                            path -> path.getPath().endsWith(".png") && path.getNamespace().equals(LOTRMod.MODID))
+                            .keySet()
+                            .stream()
+                            .findFirst())
+                    .orElseThrow(() -> new RuntimeException("Landmask image not found: " + expectedLocation));
             InputStream stream = resourceManager.getResource(landmaskLocation)
                     .orElseThrow(() -> new RuntimeException("Landmask image not found: " + landmaskLocation))
                     .open();
