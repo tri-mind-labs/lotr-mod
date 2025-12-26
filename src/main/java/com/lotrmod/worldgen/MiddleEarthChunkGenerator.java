@@ -46,14 +46,42 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     private final PerlinSimplexNoise terrainNoise;
     private final PerlinSimplexNoise detailNoise;
 
+    // Additional noise generators for multi-scale coastline generation
+    private final PerlinSimplexNoise largeScaleCoastNoise;   // Major coastal shapes
+    private final PerlinSimplexNoise mediumScaleCoastNoise;  // Bays and peninsulas
+    private final PerlinSimplexNoise smallScaleCoastNoise;   // Detailed coastline jaggedness
+
     // Sea level for the world
     private static final int SEA_LEVEL = 63;
 
-    // How much the coastline can vary (in blocks)
-    private static final double COASTLINE_VARIATION = 8.0;
+    // ========================================
+    // COASTLINE GENERATION TUNING PARAMETERS
+    // ========================================
 
-    // Noise scales for natural looking terrain
-    private static final double COASTLINE_SCALE = 0.01; // Large scale coastline variation
+    // How strongly the landmask influences the final result (0.0 to 1.0)
+    // Higher = follows landmask more strictly, Lower = more natural/random coastlines
+    private static final double LANDMASK_INFLUENCE = 0.6;
+
+    // Probability values for landmask brightness
+    // When landmask says "definitely land" (brightness 0), what's the land probability?
+    private static final double LAND_PROBABILITY_AT_BLACK = 0.90;  // 90% chance of land
+    // When landmask says "definitely ocean" (brightness 255), what's the land probability?
+    private static final double LAND_PROBABILITY_AT_WHITE = 0.10;  // 10% chance of land
+
+    // Multi-scale noise parameters (wavelengths in blocks)
+    // Large scale: Major coastal shapes and overall coastline flow
+    private static final double LARGE_SCALE_WAVELENGTH = 1500.0;  // ~1500 blocks
+    private static final double LARGE_SCALE_AMPLITUDE = 1.0;      // Influence strength
+
+    // Medium scale: Bays, inlets, peninsulas
+    private static final double MEDIUM_SCALE_WAVELENGTH = 350.0;  // ~350 blocks
+    private static final double MEDIUM_SCALE_AMPLITUDE = 0.7;     // Influence strength
+
+    // Small scale: Detailed coastline jaggedness and irregularity
+    private static final double SMALL_SCALE_WAVELENGTH = 35.0;    // ~35 blocks
+    private static final double SMALL_SCALE_AMPLITUDE = 0.4;      // Influence strength
+
+    // Noise scales (inverse of wavelength) for natural looking terrain
     private static final double TERRAIN_SCALE = 0.005;  // Medium scale terrain features
     private static final double DETAIL_SCALE = 0.05;    // Small scale details
 
@@ -62,10 +90,19 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         this.settings = settings;
 
         // Initialize noise generators for natural terrain
-        RandomSource random = RandomSource.create(12345); // Use fixed seed for consistent generation
+        // Use fixed seed for consistent generation across world loads
+        RandomSource random = RandomSource.create(12345);
+
+        // Legacy noise generators (kept for terrain height)
         this.coastlineNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2, 3));
         this.terrainNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
         this.detailNoise = new PerlinSimplexNoise(random, List.of(0, 1));
+
+        // Multi-scale coastline noise generators (using different octave sets for variation)
+        RandomSource coastRandom = RandomSource.create(54321); // Different seed for coastlines
+        this.largeScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2, 3, 4));
+        this.mediumScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2, 3));
+        this.smallScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2));
     }
 
     @Override
@@ -212,35 +249,108 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Check if a world position should be land, using landmask + noise for natural coastlines
+     * Check if a world position should be land, using multi-scale noise for natural coastlines.
+     *
+     * This method transforms the landmask from a hard boundary into a probability weight map,
+     * then blends it with multiple scales of noise to create organic, vanilla Minecraft-style
+     * coastlines that have bays, inlets, peninsulas, and natural irregularity while still
+     * generally following the Middle-earth landmask shape.
+     *
+     * @param worldX The X coordinate in world space
+     * @param worldZ The Z coordinate in world space
+     * @return true if this position should be land, false if ocean
      */
     private boolean isLandAt(int worldX, int worldZ) {
         if (!LandmaskLoader.isLoaded()) {
             return false;
         }
 
-        // Get the base landmask value
-        boolean landmaskValue = LandmaskLoader.isLand(worldX, worldZ);
+        // =====================================
+        // STEP 1: Convert landmask to probability
+        // =====================================
 
-        // Add noise-based variation to the coastline
-        double noise = this.coastlineNoise.getValue(worldX * COASTLINE_SCALE, worldZ * COASTLINE_SCALE, false);
-        double variation = noise * COASTLINE_VARIATION;
-
-        // Get brightness from landmask for smooth transitions
+        // Get the brightness value from the landmask image (0-255)
+        // Black (0) = land in the image, White (255) = ocean in the image
         int brightness = LandmaskLoader.getBrightness(worldX, worldZ);
 
-        // Create a smooth transition zone near the coast
-        // Brightness close to 128 (the threshold) means we're near the coast
-        double distanceFromThreshold = Math.abs(brightness - 128);
+        // Convert brightness to a base land probability
+        // Brightness 0 (black/land) -> LAND_PROBABILITY_AT_BLACK (e.g., 90% land)
+        // Brightness 255 (white/ocean) -> LAND_PROBABILITY_AT_WHITE (e.g., 10% land)
+        // This creates a smooth gradient instead of a hard boundary
+        double landmaskProbability = LAND_PROBABILITY_AT_BLACK -
+            ((brightness / 255.0) * (LAND_PROBABILITY_AT_BLACK - LAND_PROBABILITY_AT_WHITE));
 
-        if (distanceFromThreshold < 30) {
-            // We're in the transition zone - use noise to create natural coastline
-            double adjustedBrightness = brightness + variation;
-            return adjustedBrightness < 128;
-        }
+        // =====================================
+        // STEP 2: Sample multi-scale noise
+        // =====================================
 
-        // Far from coast - use direct landmask value
-        return landmaskValue;
+        // Large scale noise: Major coastal shapes and overall flow (1000-2000 block features)
+        // This creates sweeping coastline curves and major geographical features
+        double largeScale = 1.0 / LARGE_SCALE_WAVELENGTH;
+        double largeNoise = this.largeScaleCoastNoise.getValue(
+            worldX * largeScale,
+            worldZ * largeScale,
+            false
+        ) * LARGE_SCALE_AMPLITUDE;
+
+        // Medium scale noise: Bays, inlets, and peninsulas (200-500 block features)
+        // This creates the characteristic indented coastlines with natural harbors
+        double mediumScale = 1.0 / MEDIUM_SCALE_WAVELENGTH;
+        double mediumNoise = this.mediumScaleCoastNoise.getValue(
+            worldX * mediumScale,
+            worldZ * mediumScale,
+            false
+        ) * MEDIUM_SCALE_AMPLITUDE;
+
+        // Small scale noise: Detailed coastline jaggedness (20-50 block features)
+        // This adds the final layer of irregularity and prevents straight lines
+        double smallScale = 1.0 / SMALL_SCALE_WAVELENGTH;
+        double smallNoise = this.smallScaleCoastNoise.getValue(
+            worldX * smallScale,
+            worldZ * smallScale,
+            false
+        ) * SMALL_SCALE_AMPLITUDE;
+
+        // =====================================
+        // STEP 3: Combine noise layers
+        // =====================================
+
+        // Combine all noise scales into a single value (-1.0 to 1.0 range, approximately)
+        // The noise creates organic variation that will push the coastline in/out
+        double combinedNoise = largeNoise + mediumNoise + smallNoise;
+
+        // Normalize the combined noise to a 0.0-1.0 probability range
+        // Noise values typically range from -3 to +3 with our amplitude settings
+        // We'll map this to 0.0-1.0 with 0.5 as neutral
+        double noiseProbability = (combinedNoise + 3.0) / 6.0;
+        // Clamp to ensure we stay in valid probability range
+        noiseProbability = Math.max(0.0, Math.min(1.0, noiseProbability));
+
+        // =====================================
+        // STEP 4: Blend landmask and noise
+        // =====================================
+
+        // Blend the landmask probability with the noise probability
+        // LANDMASK_INFLUENCE controls how much we follow the map vs. how natural we are
+        //
+        // Examples with LANDMASK_INFLUENCE = 0.6:
+        //   - If landmask says 90% land and noise says 50%, final = 0.6*0.9 + 0.4*0.5 = 74% land
+        //   - If landmask says 10% land and noise says 50%, final = 0.6*0.1 + 0.4*0.5 = 26% land
+        //   - Near coastline (landmask ~50%), noise has more influence, creating organic shapes
+        double finalProbability = (LANDMASK_INFLUENCE * landmaskProbability) +
+                                  ((1.0 - LANDMASK_INFLUENCE) * noiseProbability);
+
+        // =====================================
+        // STEP 5: Determine land vs ocean
+        // =====================================
+
+        // Use the final probability with a deterministic hash function
+        // This ensures the same location always gives the same result (no randomness per-call)
+        // We want values above 0.5 probability to be land, below to be ocean
+        // But we need spatial consistency, so we use the noise value as our decider
+
+        // Simple approach: if final probability > 0.5, it's land
+        return finalProbability > 0.5;
     }
 
     @Override
