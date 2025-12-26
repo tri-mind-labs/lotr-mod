@@ -63,7 +63,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     // 0.5 = Landmask provides subtle guidance, very natural coastlines
     // 0.7 = Landmask provides strong guidance, coastlines roughly follow the map
     // 1.0 = Landmask strictly controls terrain, less natural variation
-    private static final double LANDMASK_INFLUENCE_STRENGTH = 0.65;
+    private static final double LANDMASK_INFLUENCE_STRENGTH = 0.35;
 
     // LANDMASK HEIGHT BIAS: How much the landmask pushes terrain up/down
     // Black pixels (land) add +LANDMASK_HEIGHT_BIAS to terrain
@@ -71,7 +71,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     // Gray pixels add proportional values in between
     // Higher values = more distinct land vs ocean separation
     // Lower values = more mixing, smaller islands/lakes
-    private static final double LANDMASK_HEIGHT_BIAS = 35.0; // blocks
+    private static final double LANDMASK_HEIGHT_BIAS = 15.0; // blocks
 
     // ========================================
     // MULTI-SCALE NOISE PARAMETERS
