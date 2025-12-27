@@ -388,24 +388,36 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             false
         ) * DETAIL_SCALE_AMPLITUDE;
 
-        // Combine all noise layers into base terrain height
-        // Noise values center around 0, so this centers around sea level
-        double baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
-
         // =====================================
         // STEP 1.5: Add biome-specific height modifiers
         // =====================================
-        // Mountains are dramatically taller, hills are rolling, etc.
+        // Different biome types have vastly different terrain characteristics
+        double baseTerrainHeight;
         double biomeHeightModifier = 0.0;
 
         if (biome != null) {
             if (biome.isMountain()) {
-                // Generate dramatic mountains using multiple noise octaves
+                // Mountains: Full noise variation + additional mountain height
+                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
                 biomeHeightModifier = generateMountains(worldX, worldZ, biome);
             } else if (biome.isHilly()) {
-                // Generate rolling hills
+                // Hills: Full noise for rolling terrain
+                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
                 biomeHeightModifier = generateHills(worldX, worldZ);
+            } else if (isRiver(biome)) {
+                // Rivers: Flat and low, 8 blocks below sea level
+                baseTerrainHeight = SEA_LEVEL - 8;
+            } else if (isFlatBiome(biome)) {
+                // Flat biomes (plains, deserts, grasslands): Minimal noise variation
+                // Only use very subtle large-scale variation to prevent completely flat world
+                baseTerrainHeight = SEA_LEVEL + (largeNoise * 0.2); // 20% of large scale noise only
+            } else {
+                // Default: Moderate noise variation
+                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + (smallNoise * 0.5) + (detailNoise * 0.3);
             }
+        } else {
+            // No biome info - use full noise
+            baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
         }
 
         // =====================================
@@ -582,6 +594,47 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         // Use sine wave for smooth rolling hills
         return Math.sin(normalized * Math.PI) * 25.0;
+    }
+
+    /**
+     * Check if a biome is a river (should be flat and low)
+     */
+    private boolean isRiver(LOTRBiome biome) {
+        return biome == LOTRBiome.ANDUIN_RIVER ||
+               biome == LOTRBiome.CELDUIN_RIVER;
+    }
+
+    /**
+     * Check if a biome should be flat (plains, grasslands, deserts, meadows)
+     */
+    private boolean isFlatBiome(LOTRBiome biome) {
+        return switch (biome) {
+            // Plains
+            case ERIADOR_PLAINS, ARNOR_PLAINS, GONDOR_PLAINS, DALE_PLAINS -> true;
+
+            // Grasslands
+            case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND -> true;
+
+            // Deserts
+            case HARAD_DESERT -> true;
+
+            // Meadows
+            case LINDON_MEADOW -> true;
+
+            // Savannas (should be fairly flat)
+            case HARAD_SAVANNA -> true;
+
+            // Floodplains and marshes (should be flat and low)
+            case VALE_OF_ANDUIN_FLOODPLAINS, ARNOR_MARSH -> true;
+
+            // Dead/empty lands (flat wastelands)
+            case DEAD_LANDS_EMPTY -> true;
+
+            // Special areas (Shire and Rivendell should be relatively flat/gentle)
+            case THE_SHIRE -> true;
+
+            default -> false;
+        };
     }
 
     @Override
