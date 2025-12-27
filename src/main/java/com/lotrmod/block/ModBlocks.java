@@ -56,13 +56,7 @@ public class ModBlocks {
     }
 
     // ==================== SOILS & GROUND ====================
-    // REMOVED: lotr_dirt, lotr_coarse_dirt (using vanilla instead)
-
-    public static final DeferredBlock<Block> MUD = BLOCKS.register("mud",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.MUD)));
-
-    public static final DeferredBlock<Block> PACKED_MUD = BLOCKS.register("packed_mud",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.PACKED_MUD)));
+    // REMOVED: lotr_dirt, lotr_coarse_dirt, lotr_mud, lotr_packed_mud (using vanilla instead)
 
     public static final DeferredBlock<Block> CRACKED_MUD = BLOCKS.register("cracked_mud",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.DIRT)));
