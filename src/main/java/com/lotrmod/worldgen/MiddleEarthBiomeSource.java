@@ -40,6 +40,8 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     // Cache of biome holders to avoid repeated lookups
     private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
+    private boolean cacheInitialized = false;
+    private boolean cacheInitFailed = false;
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
@@ -58,15 +60,18 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.smallBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1));
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
 
-        // Pre-initialize all biome holders while registry is available
-        // This prevents registry access issues during chunk serialization
-        initializeBiomeCache();
+        // DON'T initialize cache here - registry not bound yet
+        // Cache will be lazy-initialized on first getBiomeHolder() call
     }
 
     /**
-     * Initialize the biome holder cache early to avoid registry timing issues
+     * Initialize the biome holder cache lazily on first use when registry is available
      */
-    private void initializeBiomeCache() {
+    private synchronized void initializeBiomeCache() {
+        if (cacheInitialized || cacheInitFailed) {
+            return; // Already tried
+        }
+
         try {
             for (LOTRBiome lotrBiome : LOTRBiome.values()) {
                 Biome biomeValue = switch (lotrBiome) {
@@ -120,9 +125,11 @@ public class MiddleEarthBiomeSource extends BiomeSource {
                 };
                 biomeHolderCache.put(lotrBiome, Holder.direct(biomeValue));
             }
+            cacheInitialized = true;
             LOTRMod.LOGGER.info("Successfully initialized {} LOTR biome holders", biomeHolderCache.size());
         } catch (Exception e) {
-            LOTRMod.LOGGER.error("Failed to initialize biome holders - will use fallback", e);
+            cacheInitFailed = true;
+            LOTRMod.LOGGER.error("Failed to initialize biome holders - will use fallback plains biome", e);
         }
     }
 
@@ -206,17 +213,21 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
-     * Uses the pre-initialized cache to avoid registry timing issues
+     * Uses lazy-initialized cache to avoid registry timing issues
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        // Return from cache (pre-populated in constructor)
+        // Try lazy initialization if not done yet
+        if (!cacheInitialized && !cacheInitFailed) {
+            initializeBiomeCache();
+        }
+
+        // Return from cache if available
         Holder<Biome> cached = biomeHolderCache.get(lotrBiome);
         if (cached != null) {
             return cached;
         }
 
         // Fallback to plains if cache initialization failed
-        LOTRMod.LOGGER.warn("Biome holder not found in cache for {}, using fallback", lotrBiome);
         return landBiome;
     }
 
