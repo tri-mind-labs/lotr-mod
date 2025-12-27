@@ -1,6 +1,7 @@
 package com.lotrmod.worldgen;
 
 import com.lotrmod.LOTRMod;
+import com.lotrmod.worldgen.biome.LOTRBiome;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -146,40 +147,123 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                 int worldZ = startZ + z;
                 int terrainHeight = getTerrainHeight(worldX, worldZ);
 
+                // Get biome at this position
+                LOTRBiome biome = getBiomeAt(worldX, worldZ);
+
                 // Find the top solid block
                 for (int y = chunk.getMaxBuildHeight() - 1; y >= chunk.getMinBuildHeight(); y--) {
                     pos.set(startX + x, y, startZ + z);
                     BlockState state = chunk.getBlockState(pos);
 
                     if (state.is(Blocks.STONE)) {
-                        // Determine surface based on height
-                        if (terrainHeight >= 68) {
-                            // High ground - grass and dirt (plains)
-                            chunk.setBlockState(pos, Blocks.GRASS_BLOCK.defaultBlockState(), false);
-                            pos.setY(y - 1);
-                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                            pos.setY(y - 2);
-                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                            pos.setY(y - 3);
-                            chunk.setBlockState(pos, Blocks.DIRT.defaultBlockState(), false);
-                        }
-                        else if (terrainHeight >= 60) {
-                            // Beach zone - sand
-                            chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
-                            pos.setY(y - 1);
-                            chunk.setBlockState(pos, Blocks.SAND.defaultBlockState(), false);
-                            pos.setY(y - 2);
-                            chunk.setBlockState(pos, Blocks.SANDSTONE.defaultBlockState(), false);
-                        }
-                        else {
-                            // Ocean floor - gravel
-                            chunk.setBlockState(pos, Blocks.GRAVEL.defaultBlockState(), false);
-                        }
+                        // Place biome-specific surface blocks
+                        BlockState surfaceBlock = getSurfaceBlockForBiome(biome, terrainHeight);
+                        BlockState underBlock = getUnderBlockForBiome(biome, terrainHeight);
+
+                        // Place surface
+                        chunk.setBlockState(pos, surfaceBlock, false);
+
+                        // Place subsurface layers
+                        pos.setY(y - 1);
+                        chunk.setBlockState(pos, underBlock, false);
+                        pos.setY(y - 2);
+                        chunk.setBlockState(pos, underBlock, false);
+                        pos.setY(y - 3);
+                        chunk.setBlockState(pos, underBlock, false);
+
                         break;
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Get the surface block for a biome (grass, sand, volcanic stone, etc.)
+     */
+    private BlockState getSurfaceBlockForBiome(LOTRBiome biome, int terrainHeight) {
+        if (biome == null) {
+            // Default fallback
+            return terrainHeight >= 68 ? Blocks.GRASS_BLOCK.defaultBlockState() :
+                   terrainHeight >= 60 ? Blocks.SAND.defaultBlockState() :
+                   Blocks.GRAVEL.defaultBlockState();
+        }
+
+        return switch (biome) {
+            // Deserts
+            case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
+
+            // Dry grasslands
+            case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND,
+                 HARAD_SAVANNA -> Blocks.GRASS_BLOCK.defaultBlockState(); // TODO: Use DRY_GRASS_BLOCK when available
+
+            // Meadows
+            case LINDON_MEADOW -> Blocks.GRASS_BLOCK.defaultBlockState(); // TODO: Use MEADOW_GRASS_BLOCK
+
+            // Marshes/Swamps
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
+
+            // Rivers
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState(); // TODO: Use RIVERBED_SILT
+
+            // Mountains - stone surfaces
+            case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS,
+                 WHITE_MOUNTAINS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> Blocks.STONE.defaultBlockState();
+
+            // Mountains of Shadow - volcanic stone
+            case MOUNTAINS_OF_SHADOW -> Blocks.DEEPSLATE.defaultBlockState(); // TODO: Use VOLCANIC_STONE
+
+            // Iron Hills - gravel covered
+            case IRON_HILLS -> Blocks.GRAVEL.defaultBlockState();
+
+            // Mordor - volcanic wasteland
+            case MORDOR_VOLCANIC_WASTE -> Blocks.DEEPSLATE.defaultBlockState(); // TODO: Use VOLCANIC_STONE
+
+            // Dark forests
+            case MIRKWOOD -> Blocks.COARSE_DIRT.defaultBlockState();
+
+            // Dead/Empty lands
+            case DEAD_LANDS_EMPTY -> Blocks.DIRT.defaultBlockState(); // TODO: Use CRACKED_MUD
+
+            // Tundra
+            case FORODWAITH_TUNDRA, FORODWAITH_ROCKY_BARRENS -> Blocks.DIRT.defaultBlockState(); // TODO: Use FROZEN_DIRT
+
+            // Shrublands
+            case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> Blocks.DIRT.defaultBlockState(); // TODO: Use CRACKED_MUD
+
+            // Default - grass
+            default -> Blocks.GRASS_BLOCK.defaultBlockState();
+        };
+    }
+
+    /**
+     * Get the subsurface/under block for a biome
+     */
+    private BlockState getUnderBlockForBiome(LOTRBiome biome, int terrainHeight) {
+        if (biome == null) {
+            return terrainHeight >= 60 ? Blocks.DIRT.defaultBlockState() : Blocks.STONE.defaultBlockState();
+        }
+
+        return switch (biome) {
+            // Desert - sand layers
+            case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
+
+            // Marshes - mud
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
+
+            // Rivers - silt/gravel
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
+
+            // Mountains - stone
+            case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS, WHITE_MOUNTAINS,
+                 MOUNTAINS_OF_SHADOW, EREBOR, FORODWAITH_ICY_MOUNTAINS, IRON_HILLS -> Blocks.STONE.defaultBlockState();
+
+            // Mordor - volcanic
+            case MORDOR_VOLCANIC_WASTE -> Blocks.DEEPSLATE.defaultBlockState();
+
+            // Default - dirt
+            default -> Blocks.DIRT.defaultBlockState();
+        };
     }
 
     @Override
@@ -245,26 +329,27 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Calculate the terrain height at a given world position using continuous noise-based generation.
+     * Calculate the terrain height at a given world position using biome-aware generation.
      *
-     * This is the core of the natural coastline generation system. Instead of checking "is this land?"
-     * and generating different terrain for land vs ocean, we generate a continuous height field where:
-     * - The base terrain is generated using multi-octave noise (like vanilla Minecraft)
-     * - The landmask adds a height bias to influence where land tends to be
-     * - Sea level (Y=63) naturally determines what's land vs ocean
-     * - Coastlines form organically where terrain crosses sea level
-     *
-     * ISLAND PREVENTION: Pure ocean areas (very white on landmask) are forced to be ocean,
-     * preventing random islands from forming in the middle of the sea.
-     *
-     * COASTAL SLOPES: Near-coast areas allow natural terrain generation, creating gradual
-     * underwater slopes instead of cliff drop-offs at the waterline.
+     * This enhanced system now considers:
+     * - Multi-octave noise for natural terrain variation
+     * - Landmask influence for coastline accuracy
+     * - BIOME-SPECIFIC HEIGHT: Mountains are tall, rivers are low, hills have rolling terrain
+     * - Region-based modifications for unique landscapes
      *
      * @param worldX The X coordinate in world space
      * @param worldZ The Z coordinate in world space
      * @return The terrain height (Y coordinate) at this position
      */
     private int getTerrainHeight(int worldX, int worldZ) {
+        // Get region and biome at this position
+        Region region = RegionMapLoader.isLoaded() ? RegionMapLoader.getRegion(worldX, worldZ) : null;
+        LOTRBiome biome = getBiomeAt(worldX, worldZ);
+
+        // Rivers force low height (below sea level)
+        if (biome != null && biome.isRiver()) {
+            return SEA_LEVEL - 8; // River channel depth
+        }
         // =====================================
         // STEP 1: Generate base terrain using multi-octave noise
         // =====================================
@@ -308,6 +393,22 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
 
         // =====================================
+        // STEP 1.5: Add biome-specific height modifiers
+        // =====================================
+        // Mountains are dramatically taller, hills are rolling, etc.
+        double biomeHeightModifier = 0.0;
+
+        if (biome != null) {
+            if (biome.isMountain()) {
+                // Generate dramatic mountains using multiple noise octaves
+                biomeHeightModifier = generateMountains(worldX, worldZ, biome);
+            } else if (biome.isHilly()) {
+                // Generate rolling hills
+                biomeHeightModifier = generateHills(worldX, worldZ);
+            }
+        }
+
+        // =====================================
         // STEP 2: Get landmask height bias
         // =====================================
         // The landmask shifts terrain up (for land areas) or down (for ocean areas)
@@ -316,12 +417,12 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double landmaskBias = getLandmaskHeightBias(worldX, worldZ);
 
         // =====================================
-        // STEP 3: Combine base terrain with landmask influence
+        // STEP 3: Combine base terrain with landmask influence and biome modifiers
         // =====================================
         // Blend the natural noise-based terrain with the landmask guidance
         // LANDMASK_INFLUENCE_STRENGTH controls how much we follow the map vs. pure noise
 
-        double finalHeight = baseTerrainHeight + (landmaskBias * LANDMASK_INFLUENCE_STRENGTH);
+        double finalHeight = baseTerrainHeight + (landmaskBias * LANDMASK_INFLUENCE_STRENGTH) + biomeHeightModifier;
 
         // =====================================
         // STEP 4: Apply gradual ocean transition to prevent cliffs
@@ -425,6 +526,64 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         return terrainHeight >= SEA_LEVEL;
     }
 
+    /**
+     * Get the biome at a world position
+     * Returns null if biome source is not available
+     */
+    private LOTRBiome getBiomeAt(int worldX, int worldZ) {
+        if (!(this.getBiomeSource() instanceof MiddleEarthBiomeSource middleEarthSource)) {
+            return null;
+        }
+        return middleEarthSource.getLOTRBiomeAt(worldX, worldZ);
+    }
+
+    /**
+     * Generate dramatic mountain terrain using multiple noise octaves
+     * @return Height addition in blocks (0-120 depending on mountain type)
+     */
+    private double generateMountains(int worldX, int worldZ, LOTRBiome biome) {
+        // Use multiple noise scales for realistic jagged mountains
+        double mountainScale1 = 1.0 / 400.0; // Large mountain features
+        double mountainScale2 = 1.0 / 150.0; // Medium peaks
+        double mountainScale3 = 1.0 / 50.0;  // Small jagged details
+
+        double noise1 = this.terrainNoise.getValue(worldX * mountainScale1, worldZ * mountainScale1, false);
+        double noise2 = this.terrainNoise.getValue(worldX * mountainScale2, worldZ * mountainScale2, false);
+        double noise3 = this.detailNoise.getValue(worldX * mountainScale3, worldZ * mountainScale3, false);
+
+        // Combine noise layers: large forms + medium peaks + jagged details
+        double combinedNoise = noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2;
+
+        // Convert to positive values (0-1 range)
+        double normalizedNoise = (combinedNoise + 1.0) / 2.0;
+
+        // Apply different heights based on mountain type
+        double baseHeight = switch (biome) {
+            case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0; // Huge mountains
+            case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0; // Large mountains
+            case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0; // Medium mountains
+            default -> 40.0; // Small mountains
+        };
+
+        // Mountains use squared noise for dramatic peaks
+        return normalizedNoise * normalizedNoise * baseHeight;
+    }
+
+    /**
+     * Generate rolling hills using gentle noise
+     * @return Height variation in blocks (0-25)
+     */
+    private double generateHills(int worldX, int worldZ) {
+        double hillScale = 1.0 / 250.0;
+        double hillNoise = this.terrainNoise.getValue(worldX * hillScale, worldZ * hillScale, false);
+
+        // Convert to 0-1 range and apply gentle curve
+        double normalized = (hillNoise + 1.0) / 2.0;
+
+        // Use sine wave for smooth rolling hills
+        return Math.sin(normalized * Math.PI) * 25.0;
+    }
+
     @Override
     public int getSeaLevel() {
         return SEA_LEVEL;
@@ -463,6 +622,39 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     public void addDebugScreenInfo(List<String> info, RandomState random, BlockPos pos) {
         info.add("Middle-earth Chunk Generator");
         info.add("Landmask loaded: " + LandmaskLoader.isLoaded());
+        info.add("Region map loaded: " + RegionMapLoader.isLoaded());
+
+        // Show region information
+        if (RegionMapLoader.isLoaded()) {
+            Region region = RegionMapLoader.getRegion(pos.getX(), pos.getZ());
+            info.add("Region: " + region.getDisplayName());
+
+            // Show region map color (for debugging)
+            int color = RegionMapLoader.getInterpolatedColor(pos.getX(), pos.getZ());
+            int r = (color >> 16) & 0xFF;
+            int g = (color >> 8) & 0xFF;
+            int b = color & 0xFF;
+            info.add(String.format("Region RGB: (%d, %d, %d)", r, g, b));
+        }
+
+        // Show biome information
+        LOTRBiome biome = getBiomeAt(pos.getX(), pos.getZ());
+        if (biome != null) {
+            info.add("LOTR Biome: " + biome.getName());
+            info.add("Is Mountain: " + biome.isMountain());
+            info.add("Is River: " + biome.isRiver());
+            info.add("Is Hilly: " + biome.isHilly());
+        }
+
+        // Show landmask info
+        if (LandmaskLoader.isLoaded()) {
+            double brightness = LandmaskLoader.getInterpolatedBrightness(pos.getX(), pos.getZ());
+            info.add(String.format("Landmask: %.1f", brightness));
+        }
+
+        // Show terrain info
+        int terrainHeight = getTerrainHeight(pos.getX(), pos.getZ());
+        info.add("Terrain height: " + terrainHeight);
         info.add("Is land: " + isLandAt(pos.getX(), pos.getZ()));
     }
 }

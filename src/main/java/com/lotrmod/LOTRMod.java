@@ -1,8 +1,11 @@
 package com.lotrmod;
 
+import com.lotrmod.block.ModBlocks;
 import com.lotrmod.command.MiddleEarthCommand;
+import com.lotrmod.item.ModItems;
 import com.lotrmod.worldgen.LOTRWorldGen;
 import com.lotrmod.worldgen.LandmaskLoader;
+import com.lotrmod.worldgen.RegionMapLoader;
 import com.mojang.logging.LogUtils;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.neoforged.bus.api.IEventBus;
@@ -24,6 +27,10 @@ public class LOTRMod {
     public LOTRMod(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
 
+        // Register blocks and items
+        ModBlocks.register(modEventBus);
+        ModItems.register(modEventBus);
+
         // Register world generation components
         LOTRWorldGen.register(modEventBus);
 
@@ -38,17 +45,19 @@ public class LOTRMod {
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        LOGGER.info("LOTR Mod: Server starting, loading landmask...");
+        LOGGER.info("LOTR Mod: Server starting, loading world generation maps...");
         ResourceManager resourceManager = event.getServer().getResourceManager();
         LandmaskLoader.loadLandmask(resourceManager);
+        RegionMapLoader.loadRegionMap(resourceManager);
     }
 
     @SubscribeEvent
     public void onAddReloadListener(AddReloadListenerEvent event) {
-        // Reload landmask when resources are reloaded
+        // Reload maps when resources are reloaded
         event.addListener((preparationBarrier, resourceManager, profilerFiller, profilerFiller2, executor, executor2) ->
                 preparationBarrier.wait(null).thenRunAsync(() -> {
                     LandmaskLoader.loadLandmask(resourceManager);
+                    RegionMapLoader.loadRegionMap(resourceManager);
                 }, executor2));
     }
 

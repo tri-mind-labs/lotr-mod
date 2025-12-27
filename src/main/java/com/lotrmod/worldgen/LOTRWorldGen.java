@@ -1,6 +1,7 @@
 package com.lotrmod.worldgen;
 
 import com.lotrmod.LOTRMod;
+import com.lotrmod.worldgen.biome.ModBiomes;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.biome.BiomeSource;
@@ -29,6 +30,10 @@ public class LOTRWorldGen {
             BIOME_SOURCES.register("middleearth", () -> MiddleEarthBiomeSource.CODEC);
 
     public static void register(IEventBus modEventBus) {
+        // Register biomes first
+        ModBiomes.BIOMES.register(modEventBus);
+
+        // Then register chunk generators and biome sources
         CHUNK_GENERATORS.register(modEventBus);
         BIOME_SOURCES.register(modEventBus);
 
