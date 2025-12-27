@@ -55,11 +55,9 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // Return all registered LOTR biomes plus legacy biomes for compatibility
-        return Stream.concat(
-                Stream.of(oceanBiome, landBiome, beachBiome),
-                ModBiomes.BIOMES.getEntries().stream().map(entry -> (Holder<Biome>) entry)
-        );
+        // Only return legacy biomes here to avoid registry timing issues
+        // LOTR biomes are selected dynamically in getNoiseBiome() and don't need to be pre-collected
+        return Stream.of(oceanBiome, landBiome, beachBiome);
     }
 
     @Override
