@@ -1,7 +1,6 @@
 package com.lotrmod.worldgen;
 
 import com.lotrmod.LOTRMod;
-import com.lotrmod.block.ModBlocks;
 import com.lotrmod.worldgen.biome.LOTRBiome;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -192,48 +191,48 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         return switch (biome) {
             // Deserts
-            case HARAD_DESERT -> ModBlocks.SAND.get().defaultBlockState();
+            case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
-            // Dry grasslands
+            // Dry grasslands - use vanilla grass
             case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND,
-                 HARAD_SAVANNA -> ModBlocks.DRY_GRASS_BLOCK.get().defaultBlockState();
+                 HARAD_SAVANNA -> Blocks.GRASS_BLOCK.defaultBlockState();
 
-            // Meadows
-            case LINDON_MEADOW -> ModBlocks.MEADOW_GRASS_BLOCK.get().defaultBlockState();
+            // Meadows - use vanilla grass
+            case LINDON_MEADOW -> Blocks.GRASS_BLOCK.defaultBlockState();
 
             // Marshes/Swamps
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
             // Rivers
-            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
 
             // Mountains - stone surfaces
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS,
                  WHITE_MOUNTAINS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> Blocks.STONE.defaultBlockState();
 
-            // Mountains of Shadow - volcanic stone
-            case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
+            // Mountains of Shadow - use deepslate as placeholder
+            case MOUNTAINS_OF_SHADOW -> Blocks.DEEPSLATE.defaultBlockState();
 
             // Iron Hills - gravel covered
             case IRON_HILLS -> Blocks.GRAVEL.defaultBlockState();
 
-            // Mordor - volcanic wasteland with volcanic ash
-            case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
+            // Mordor - use netherrack for volcanic look
+            case MORDOR_VOLCANIC_WASTE -> Blocks.NETHERRACK.defaultBlockState();
 
             // Dark forests
-            case MIRKWOOD -> ModBlocks.COARSE_DIRT.get().defaultBlockState();
+            case MIRKWOOD -> Blocks.COARSE_DIRT.defaultBlockState();
 
             // Dead/Empty lands
-            case DEAD_LANDS_EMPTY -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
+            case DEAD_LANDS_EMPTY -> Blocks.DIRT.defaultBlockState();
 
-            // Tundra
-            case FORODWAITH_TUNDRA, FORODWAITH_ROCKY_BARRENS -> ModBlocks.FROZEN_DIRT.get().defaultBlockState();
+            // Tundra - use snow block
+            case FORODWAITH_TUNDRA, FORODWAITH_ROCKY_BARRENS -> Blocks.SNOW_BLOCK.defaultBlockState();
 
             // Shrublands
-            case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
+            case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> Blocks.COARSE_DIRT.defaultBlockState();
 
             // Default - grass
-            default -> ModBlocks.GRASS_BLOCK.get().defaultBlockState();
+            default -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
     }
 
@@ -267,24 +266,24 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         return switch (biome) {
             // Desert - sand layers
-            case HARAD_DESERT -> ModBlocks.SAND.get().defaultBlockState();
+            case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
             // Marshes - mud
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
-            // Rivers - silt
-            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
+            // Rivers - gravel
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
 
-            // Mountains - stone (volcanic for Mountains of Shadow)
-            case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
+            // Mountains - stone
+            case MOUNTAINS_OF_SHADOW -> Blocks.DEEPSLATE.defaultBlockState();
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS, WHITE_MOUNTAINS,
                  EREBOR, FORODWAITH_ICY_MOUNTAINS, IRON_HILLS -> Blocks.STONE.defaultBlockState();
 
-            // Mordor - volcanic ash
-            case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
+            // Mordor - netherrack
+            case MORDOR_VOLCANIC_WASTE -> Blocks.NETHERRACK.defaultBlockState();
 
             // Default - dirt
-            default -> ModBlocks.DIRT.get().defaultBlockState();
+            default -> Blocks.DIRT.defaultBlockState();
         };
     }
 
@@ -375,17 +374,18 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
     /**
      * Calculate terrain height with biome blending for smooth transitions.
-     * Samples multiple nearby positions and blends their heights.
+     * Samples nearby positions (3x3 grid = 9 samples) and blends their heights.
+     * OPTIMIZED: Reduced from 5x5 (25 samples) to 3x3 (9 samples) for better performance.
      */
     private int getTerrainHeightWithBlending(int worldX, int worldZ) {
-        // Blending radius in blocks (larger = smoother transitions but more expensive)
-        final int BLEND_RADIUS = 16;
-        final int SAMPLE_STEP = 8; // Sample every 8 blocks for performance
+        // Blending radius in blocks - reduced for performance
+        final int BLEND_RADIUS = 8;  // Reduced from 16
+        final int SAMPLE_STEP = 8;    // Sample every 8 blocks
 
         double totalHeight = 0.0;
         double totalWeight = 0.0;
 
-        // Sample in a grid around the current position
+        // Sample in a 3x3 grid around the current position: (-8, 0, 8) × (-8, 0, 8)
         for (int dx = -BLEND_RADIUS; dx <= BLEND_RADIUS; dx += SAMPLE_STEP) {
             for (int dz = -BLEND_RADIUS; dz <= BLEND_RADIUS; dz += SAMPLE_STEP) {
                 int sampleX = worldX + dx;
@@ -393,14 +393,18 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
                 // Calculate weight based on distance (closer samples have more influence)
                 double distance = Math.sqrt(dx * dx + dz * dz);
-                double weight = Math.max(0.0, 1.0 - (distance / BLEND_RADIUS));
+
+                // Skip samples outside the blend radius (corners)
+                if (distance > BLEND_RADIUS) {
+                    continue;
+                }
+
+                double weight = 1.0 - (distance / BLEND_RADIUS);
                 weight = weight * weight; // Square for smoother falloff
 
-                if (weight > 0.001) { // Skip negligible weights
-                    double height = getTerrainHeightAtBiome(sampleX, sampleZ);
-                    totalHeight += height * weight;
-                    totalWeight += weight;
-                }
+                double height = getTerrainHeightAtBiome(sampleX, sampleZ);
+                totalHeight += height * weight;
+                totalWeight += weight;
             }
         }
 
@@ -477,9 +481,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                 // Hills: Full noise for rolling terrain
                 baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
                 biomeHeightModifier = generateHills(worldX, worldZ);
-            } else if (isRiver(biome)) {
-                // Rivers: Flat and low, 8 blocks below sea level
-                baseTerrainHeight = SEA_LEVEL - 8;
             } else if (isFlatBiome(biome)) {
                 // Flat biomes (plains, deserts, grasslands): Subtle noise variation
                 // Use reduced noise for mostly flat terrain with gentle undulations
