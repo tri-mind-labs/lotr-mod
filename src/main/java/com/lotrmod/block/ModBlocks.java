@@ -56,11 +56,7 @@ public class ModBlocks {
     }
 
     // ==================== SOILS & GROUND ====================
-    public static final DeferredBlock<Block> DIRT = BLOCKS.register("lotr_dirt",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.DIRT)));
-
-    public static final DeferredBlock<Block> COARSE_DIRT = BLOCKS.register("lotr_coarse_dirt",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.COARSE_DIRT)));
+    // REMOVED: lotr_dirt, lotr_coarse_dirt (using vanilla instead)
 
     public static final DeferredBlock<Block> MUD = BLOCKS.register("mud",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.MUD)));
@@ -78,15 +74,13 @@ public class ModBlocks {
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.DIRT)));
 
     // ==================== SAND ====================
-    public static final DeferredBlock<Block> SAND = BLOCKS.register("lotr_sand",
-            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.SAND)));
+    // REMOVED: lotr_sand (using vanilla instead)
 
     public static final DeferredBlock<Block> RED_SAND = BLOCKS.register("lotr_red_sand",
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_SAND)));
 
     // ==================== GRASS & SURFACE ====================
-    public static final DeferredBlock<GrassBlock> GRASS_BLOCK = BLOCKS.register("lotr_grass_block",
-            () -> new GrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GRASS_BLOCK)));
+    // REMOVED: lotr_grass_block, meadow_grass_block (using vanilla instead)
 
     public static final DeferredBlock<GrassBlock> DRY_GRASS_BLOCK = BLOCKS.register("dry_grass_block",
             () -> new GrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GRASS_BLOCK)));
@@ -95,9 +89,6 @@ public class ModBlocks {
             () -> new GrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GRASS_BLOCK)));
 
     public static final DeferredBlock<GrassBlock> DRY_TALL_GRASS_BLOCK = BLOCKS.register("dry_tall_grass_block",
-            () -> new GrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GRASS_BLOCK)));
-
-    public static final DeferredBlock<GrassBlock> MEADOW_GRASS_BLOCK = BLOCKS.register("meadow_grass_block",
             () -> new GrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.GRASS_BLOCK)));
 
     // ==================== PLANTS ====================

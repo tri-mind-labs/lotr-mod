@@ -229,8 +229,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Shrublands - custom cracked mud
             case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
 
-            // Default - CUSTOM GRASS
-            default -> ModBlocks.GRASS_BLOCK.get().defaultBlockState();
+            // Default - VANILLA GRASS (removed custom grass block)
+            default -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
     }
 
@@ -280,8 +280,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Mordor - custom volcanic ash
             case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Default - CUSTOM DIRT
-            default -> ModBlocks.DIRT.get().defaultBlockState();
+            // Default - VANILLA DIRT (removed custom dirt)
+            default -> Blocks.DIRT.defaultBlockState();
         };
     }
 
