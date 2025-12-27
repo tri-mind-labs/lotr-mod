@@ -596,25 +596,26 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * Calculate blended biome modifiers by sampling nearby biomes.
      * This creates smooth transitions between different terrain types.
      *
-     * Uses a large radius (96 blocks) with sparse sampling to create gradual, natural blending.
+     * CRITICAL FIX: Only sample BIOME TYPES, not position-dependent noise!
+     * Then apply the blended factors to noise calculated at the TARGET position.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
 
         // CRITICAL: Use a LARGE blend radius for smooth transitions between dramatically different biomes
         // Mountains can be 100+ blocks tall, plains are ~65 blocks, so we need a wide transition zone
-        final int BLEND_RADIUS = 96;   // Wide radius for gradual transitions
-        final int SAMPLE_STEP = 16;     // Coarse sampling for performance
-        final int HALF_SAMPLES = 3;     // 7x7 grid (49 samples total)
+        final int BLEND_RADIUS = 128;   // Even wider radius for very gradual transitions
+        final int SAMPLE_STEP = 16;      // Coarse sampling for performance
+        final int HALF_SAMPLES = 4;      // 9x9 grid (81 samples total)
 
         double totalWeight = 0.0;
         double totalFlatWeight = 0.0;
         double totalHillWeight = 0.0;
         double totalMountainWeight = 0.0;
+        double totalMountainHeightScale = 0.0; // Track weighted average mountain height scale
         double totalRiverWeight = 0.0;
-        double totalHeightAddition = 0.0;
 
-        // Sample in a 7x7 grid: (-48, -32, -16, 0, 16, 32, 48) × (-48, -32, -16, 0, 16, 32, 48)
+        // Sample in a 9x9 grid: (-64, -48, -32, -16, 0, 16, 32, 48, 64) × same
         for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
             for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
                 int sampleX = worldX + dx;
@@ -637,22 +638,23 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                     continue;
                 }
 
-                // Classify biome and accumulate weighted factors
+                // Classify biome TYPE only - don't calculate position-dependent noise here!
                 if (biome.isRiver()) {
                     totalRiverWeight += weight;
-                    totalHeightAddition += weight * (SEA_LEVEL - 8 - SEA_LEVEL); // River depth modifier
                 } else if (biome.isMountain()) {
                     totalMountainWeight += weight;
-                    // Calculate mountain height at this sample
-                    double mountainHeight = generateMountains(sampleX, sampleZ, biome);
-                    totalHeightAddition += weight * mountainHeight;
+                    // Store the mountain TYPE scale, not the actual height
+                    double mountainScale = switch (biome) {
+                        case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0; // Huge
+                        case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0; // Large
+                        case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0; // Medium
+                        default -> 40.0; // Small
+                    };
+                    totalMountainHeightScale += weight * mountainScale;
                 } else if (biome.isHilly()) {
                     totalHillWeight += weight;
-                    double hillHeight = generateHills(sampleX, sampleZ);
-                    totalHeightAddition += weight * hillHeight;
                 } else if (isFlatBiome(biome)) {
                     totalFlatWeight += weight;
-                    // Flat biomes add no height modification
                 } else {
                     // Default: treat as slightly hilly
                     totalHillWeight += weight * 0.5;
@@ -669,17 +671,37 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             result.hillFactor = totalHillWeight / totalWeight;
             result.mountainFactor = totalMountainWeight / totalWeight;
             result.riverFactor = totalRiverWeight / totalWeight;
-            result.heightAddition = totalHeightAddition / totalWeight;
+
+            // NOW calculate the height modifiers at the TARGET position (worldX, worldZ)
+            // using the blended factors
+
+            // River depth
+            if (result.riverFactor > 0.01) {
+                result.heightAddition += result.riverFactor * -8.0; // Rivers are 8 blocks below sea level
+            }
+
+            // Mountain height (calculate noise at TARGET position, scale by blend factor)
+            if (result.mountainFactor > 0.01) {
+                double avgMountainScale = totalMountainHeightScale / totalWeight;
+                double mountainHeight = generateMountainHeightAtPosition(worldX, worldZ, avgMountainScale);
+                result.heightAddition += result.mountainFactor * mountainHeight;
+            }
+
+            // Hill height (calculate noise at TARGET position, scale by blend factor)
+            if (result.hillFactor > 0.01) {
+                double hillHeight = generateHillsAtPosition(worldX, worldZ);
+                result.heightAddition += result.hillFactor * hillHeight;
+            }
         }
 
         return result;
     }
 
     /**
-     * Generate dramatic mountain terrain using multiple noise octaves
-     * @return Height addition in blocks (0-120 depending on mountain type)
+     * Generate mountain height at a specific position using noise.
+     * This should ONLY be called with the target position, not sample positions!
      */
-    private double generateMountains(int worldX, int worldZ, LOTRBiome biome) {
+    private double generateMountainHeightAtPosition(int worldX, int worldZ, double baseHeight) {
         // Use multiple noise scales for realistic jagged mountains
         double mountainScale1 = 1.0 / 400.0; // Large mountain features
         double mountainScale2 = 1.0 / 150.0; // Medium peaks
@@ -695,23 +717,15 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // Convert to positive values (0-1 range)
         double normalizedNoise = (combinedNoise + 1.0) / 2.0;
 
-        // Apply different heights based on mountain type
-        double baseHeight = switch (biome) {
-            case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0; // Huge mountains
-            case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0; // Large mountains
-            case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0; // Medium mountains
-            default -> 40.0; // Small mountains
-        };
-
         // Mountains use squared noise for dramatic peaks
         return normalizedNoise * normalizedNoise * baseHeight;
     }
 
     /**
-     * Generate rolling hills using gentle noise
-     * @return Height variation in blocks (0-25)
+     * Generate hill height at a specific position using noise.
+     * This should ONLY be called with the target position, not sample positions!
      */
-    private double generateHills(int worldX, int worldZ) {
+    private double generateHillsAtPosition(int worldX, int worldZ) {
         double hillScale = 1.0 / 250.0;
         double hillNoise = this.terrainNoise.getValue(worldX * hillScale, worldZ * hillScale, false);
 
@@ -722,13 +736,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         return Math.sin(normalized * Math.PI) * 25.0;
     }
 
-    /**
-     * Check if a biome is a river (should be flat and low)
-     */
-    private boolean isRiver(LOTRBiome biome) {
-        return biome == LOTRBiome.ANDUIN_RIVER ||
-               biome == LOTRBiome.CELDUIN_RIVER;
-    }
+    // Old generateMountains() and generateHills() methods removed
+    // They were calculating noise at sample positions instead of target positions
+    // New versions: generateMountainHeightAtPosition() and generateHillsAtPosition()
 
     /**
      * Check if a biome should be flat (plains, grasslands, deserts, meadows)
