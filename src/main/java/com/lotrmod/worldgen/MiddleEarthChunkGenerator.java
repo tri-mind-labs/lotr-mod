@@ -1,6 +1,7 @@
 package com.lotrmod.worldgen;
 
 import com.lotrmod.LOTRMod;
+import com.lotrmod.block.ModBlocks;
 import com.lotrmod.worldgen.biome.LOTRBiome;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -190,48 +191,48 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         }
 
         return switch (biome) {
-            // Deserts
+            // Deserts - VANILLA SAND (as requested)
             case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
-            // Dry grasslands - use vanilla grass
+            // Dry grasslands - VANILLA GRASS (as requested)
             case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND,
                  HARAD_SAVANNA -> Blocks.GRASS_BLOCK.defaultBlockState();
 
-            // Meadows - use vanilla grass
-            case LINDON_MEADOW -> Blocks.GRASS_BLOCK.defaultBlockState();
+            // Meadows - custom meadow grass
+            case LINDON_MEADOW -> ModBlocks.MEADOW_GRASS_BLOCK.get().defaultBlockState();
 
-            // Marshes/Swamps
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
+            // Marshes/Swamps - custom mud
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
 
-            // Rivers
-            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
+            // Rivers - custom silt
+            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
 
             // Mountains - stone surfaces
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS,
                  WHITE_MOUNTAINS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> Blocks.STONE.defaultBlockState();
 
-            // Mountains of Shadow - use deepslate as placeholder
-            case MOUNTAINS_OF_SHADOW -> Blocks.DEEPSLATE.defaultBlockState();
+            // Mountains of Shadow - custom volcanic stone
+            case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
 
             // Iron Hills - gravel covered
             case IRON_HILLS -> Blocks.GRAVEL.defaultBlockState();
 
-            // Mordor - use netherrack for volcanic look
-            case MORDOR_VOLCANIC_WASTE -> Blocks.NETHERRACK.defaultBlockState();
+            // Mordor - custom volcanic ash
+            case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Dark forests
-            case MIRKWOOD -> Blocks.COARSE_DIRT.defaultBlockState();
+            // Dark forests - custom coarse dirt
+            case MIRKWOOD -> ModBlocks.COARSE_DIRT.get().defaultBlockState();
 
-            // Dead/Empty lands
-            case DEAD_LANDS_EMPTY -> Blocks.DIRT.defaultBlockState();
+            // Dead/Empty lands - custom cracked mud
+            case DEAD_LANDS_EMPTY -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
 
-            // Tundra - use snow block
-            case FORODWAITH_TUNDRA, FORODWAITH_ROCKY_BARRENS -> Blocks.SNOW_BLOCK.defaultBlockState();
+            // Tundra - custom frozen dirt
+            case FORODWAITH_TUNDRA, FORODWAITH_ROCKY_BARRENS -> ModBlocks.FROZEN_DIRT.get().defaultBlockState();
 
-            // Shrublands
-            case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> Blocks.COARSE_DIRT.defaultBlockState();
+            // Shrublands - custom cracked mud
+            case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
 
-            // Default - grass
+            // Default - VANILLA GRASS (as requested)
             default -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
     }
@@ -265,25 +266,25 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         }
 
         return switch (biome) {
-            // Desert - sand layers
+            // Desert - VANILLA SAND subsurface
             case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
-            // Marshes - mud
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
+            // Marshes - custom mud
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
 
-            // Rivers - gravel
-            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
+            // Rivers - custom silt
+            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
 
-            // Mountains - stone
-            case MOUNTAINS_OF_SHADOW -> Blocks.DEEPSLATE.defaultBlockState();
+            // Mountains - stone (volcanic for Mountains of Shadow)
+            case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS, WHITE_MOUNTAINS,
                  EREBOR, FORODWAITH_ICY_MOUNTAINS, IRON_HILLS -> Blocks.STONE.defaultBlockState();
 
-            // Mordor - netherrack
-            case MORDOR_VOLCANIC_WASTE -> Blocks.NETHERRACK.defaultBlockState();
+            // Mordor - custom volcanic ash
+            case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Default - dirt
-            default -> Blocks.DIRT.defaultBlockState();
+            // Default - custom dirt
+            default -> ModBlocks.DIRT.get().defaultBlockState();
         };
     }
 
@@ -374,27 +375,32 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
     /**
      * Calculate terrain height with biome blending for smooth transitions.
-     * Samples nearby positions (3x3 grid = 9 samples) and blends their heights.
-     * OPTIMIZED: Reduced from 5x5 (25 samples) to 3x3 (9 samples) for better performance.
+     * Samples nearby positions in a 3x3 grid over a 32-block radius.
+     * Uses 9 samples with 16-block spacing for wide, smooth blending zones.
      */
     private int getTerrainHeightWithBlending(int worldX, int worldZ) {
-        // Blending radius in blocks - reduced for performance
-        final int BLEND_RADIUS = 8;  // Reduced from 16
-        final int SAMPLE_STEP = 8;    // Sample every 8 blocks
+        // Wider blending radius for smooth biome transitions (32 blocks)
+        final int BLEND_RADIUS = 32;
+        final int SAMPLE_STEP = 16;    // Sample every 16 blocks for 3x3 grid
 
         double totalHeight = 0.0;
         double totalWeight = 0.0;
 
-        // Sample in a 3x3 grid around the current position: (-8, 0, 8) × (-8, 0, 8)
-        for (int dx = -BLEND_RADIUS; dx <= BLEND_RADIUS; dx += SAMPLE_STEP) {
-            for (int dz = -BLEND_RADIUS; dz <= BLEND_RADIUS; dz += SAMPLE_STEP) {
+        // Sample in a 3x3 grid: (-32, -16, 0, 16, 32) but with 16-block steps
+        // This creates samples at: (-32, -16, 0, 16, 32) × (-32, -16, 0, 16, 32)
+        // Wait, that's 5x5. Let me recalculate for 3x3:
+        // For 3x3 we need: (-16, 0, 16) × (-16, 0, 16)
+        final int HALF_SAMPLES = 1; // Number of samples on each side of center
+
+        for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
+            for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
                 int sampleX = worldX + dx;
                 int sampleZ = worldZ + dz;
 
                 // Calculate weight based on distance (closer samples have more influence)
                 double distance = Math.sqrt(dx * dx + dz * dz);
 
-                // Skip samples outside the blend radius (corners)
+                // All 9 samples should be within 32-block radius
                 if (distance > BLEND_RADIUS) {
                     continue;
                 }
