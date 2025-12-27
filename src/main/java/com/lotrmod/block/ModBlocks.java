@@ -78,11 +78,11 @@ public class ModBlocks {
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.DIRT)));
 
     // ==================== SAND ====================
-    public static final DeferredBlock<SandBlock> SAND = BLOCKS.register("lotr_sand",
-            () -> new SandBlock(0xD9C89E, BlockBehaviour.Properties.ofFullCopy(Blocks.SAND)));
+    public static final DeferredBlock<FallingBlock> SAND = BLOCKS.register("lotr_sand",
+            () -> new FallingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SAND)));
 
-    public static final DeferredBlock<SandBlock> RED_SAND = BLOCKS.register("lotr_red_sand",
-            () -> new SandBlock(0xA95821, BlockBehaviour.Properties.ofFullCopy(Blocks.RED_SAND)));
+    public static final DeferredBlock<FallingBlock> RED_SAND = BLOCKS.register("lotr_red_sand",
+            () -> new FallingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_SAND)));
 
     // ==================== GRASS & SURFACE ====================
     public static final DeferredBlock<GrassBlock> GRASS_BLOCK = BLOCKS.register("lotr_grass_block",
@@ -168,42 +168,43 @@ public class ModBlocks {
             () -> new LeavesBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.FLOWERING_AZALEA_LEAVES)));
 
     // ==================== FLOWERS ====================
-    public static final DeferredBlock<FlowerBlock> MEADOW_BUTTERCUP = BLOCKS.register("meadow_buttercup",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> OXEYE_DAISY_TALL = BLOCKS.register("oxeye_daisy_tall",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> WILD_CHAMOMILE = BLOCKS.register("wild_chamomile",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> CORNFLOWER_BLUE = BLOCKS.register("cornflower_blue",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.CORNFLOWER)));
-    public static final DeferredBlock<FlowerBlock> MEADOW_CLOVER = BLOCKS.register("meadow_clover",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> WOOD_ANEMONE = BLOCKS.register("wood_anemone",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> LILY_OF_THE_VALLEY = BLOCKS.register("lotr_lily_of_the_valley",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.LILY_OF_THE_VALLEY)));
-    public static final DeferredBlock<FlowerBlock> FOXGLOVE = BLOCKS.register("foxglove",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.ALLIUM)));
-    public static final DeferredBlock<FlowerBlock> PRIMROSE = BLOCKS.register("primrose",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> WILD_VIOLET = BLOCKS.register("wild_violet",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
-    public static final DeferredBlock<FlowerBlock> MARSH_MARIGOLD = BLOCKS.register("marsh_marigold",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> WATER_FORGET_ME_NOT = BLOCKS.register("water_forget_me_not",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
-    public static final DeferredBlock<FlowerBlock> REED_IRIS = BLOCKS.register("reed_iris",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
-    public static final DeferredBlock<FlowerBlock> SCARLET_POPPY = BLOCKS.register("scarlet_poppy",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY)));
-    public static final DeferredBlock<FlowerBlock> DESERT_STARFLOWER = BLOCKS.register("desert_starflower",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> SUN_THISTLE = BLOCKS.register("sun_thistle",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> GOLDEN_LORIEN_BLOOM = BLOCKS.register("golden_lorien_bloom",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
-    public static final DeferredBlock<FlowerBlock> SILVER_NIGHTFLOWER = BLOCKS.register("silver_nightflower",
-            () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    // Using simple Block instead of FlowerBlock to avoid suspicious stew effect requirements
+    public static final DeferredBlock<Block> MEADOW_BUTTERCUP = BLOCKS.register("meadow_buttercup",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> OXEYE_DAISY_TALL = BLOCKS.register("oxeye_daisy_tall",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> WILD_CHAMOMILE = BLOCKS.register("wild_chamomile",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> CORNFLOWER_BLUE = BLOCKS.register("cornflower_blue",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.CORNFLOWER)));
+    public static final DeferredBlock<Block> MEADOW_CLOVER = BLOCKS.register("meadow_clover",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> WOOD_ANEMONE = BLOCKS.register("wood_anemone",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> LILY_OF_THE_VALLEY = BLOCKS.register("lotr_lily_of_the_valley",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.LILY_OF_THE_VALLEY)));
+    public static final DeferredBlock<Block> FOXGLOVE = BLOCKS.register("foxglove",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.ALLIUM)));
+    public static final DeferredBlock<Block> PRIMROSE = BLOCKS.register("primrose",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> WILD_VIOLET = BLOCKS.register("wild_violet",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
+    public static final DeferredBlock<Block> MARSH_MARIGOLD = BLOCKS.register("marsh_marigold",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> WATER_FORGET_ME_NOT = BLOCKS.register("water_forget_me_not",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
+    public static final DeferredBlock<Block> REED_IRIS = BLOCKS.register("reed_iris",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_ORCHID)));
+    public static final DeferredBlock<Block> SCARLET_POPPY = BLOCKS.register("scarlet_poppy",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POPPY)));
+    public static final DeferredBlock<Block> DESERT_STARFLOWER = BLOCKS.register("desert_starflower",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> SUN_THISTLE = BLOCKS.register("sun_thistle",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> GOLDEN_LORIEN_BLOOM = BLOCKS.register("golden_lorien_bloom",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
+    public static final DeferredBlock<Block> SILVER_NIGHTFLOWER = BLOCKS.register("silver_nightflower",
+            () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DANDELION)));
 
     // ==================== SPECIAL ====================
     public static final DeferredBlock<Block> VOLCANIC_ASH_BLOCK = BLOCKS.register("volcanic_ash_block",
@@ -279,7 +280,7 @@ public class ModBlocks {
             this.button = BLOCKS.register(name + "_button",
                     () -> new ButtonBlock(blockSetType, 30, BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_BUTTON)));
             this.sapling = BLOCKS.register(name + "_sapling",
-                    () -> new FlowerBlock(SuspiciousEffectHolder.create(null, 0), BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING))); // Decorative only
+                    () -> new TallGrassBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SAPLING))); // Decorative only - no growth
         }
     }
 
