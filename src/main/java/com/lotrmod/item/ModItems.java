@@ -97,20 +97,14 @@ public class ModItems {
         }
 
         // Register other block items
-        ITEMS.register("lotr_dirt", () -> new BlockItem(ModBlocks.DIRT.get(), new Item.Properties()));
-        ITEMS.register("lotr_coarse_dirt", () -> new BlockItem(ModBlocks.COARSE_DIRT.get(), new Item.Properties()));
-        ITEMS.register("mud", () -> new BlockItem(ModBlocks.MUD.get(), new Item.Properties()));
-        ITEMS.register("packed_mud", () -> new BlockItem(ModBlocks.PACKED_MUD.get(), new Item.Properties()));
+        // REMOVED: lotr_dirt, lotr_coarse_dirt, lotr_sand, lotr_grass_block, meadow_grass_block, lotr_mud, lotr_packed_mud
         ITEMS.register("cracked_mud", () -> new BlockItem(ModBlocks.CRACKED_MUD.get(), new Item.Properties()));
         ITEMS.register("frozen_dirt", () -> new BlockItem(ModBlocks.FROZEN_DIRT.get(), new Item.Properties()));
         ITEMS.register("silt", () -> new BlockItem(ModBlocks.SILT.get(), new Item.Properties()));
-        ITEMS.register("lotr_sand", () -> new BlockItem(ModBlocks.SAND.get(), new Item.Properties()));
         ITEMS.register("lotr_red_sand", () -> new BlockItem(ModBlocks.RED_SAND.get(), new Item.Properties()));
-        ITEMS.register("lotr_grass_block", () -> new BlockItem(ModBlocks.GRASS_BLOCK.get(), new Item.Properties()));
         ITEMS.register("dry_grass_block", () -> new BlockItem(ModBlocks.DRY_GRASS_BLOCK.get(), new Item.Properties()));
         ITEMS.register("tall_grass_block", () -> new BlockItem(ModBlocks.TALL_GRASS_BLOCK.get(), new Item.Properties()));
         ITEMS.register("dry_tall_grass_block", () -> new BlockItem(ModBlocks.DRY_TALL_GRASS_BLOCK.get(), new Item.Properties()));
-        ITEMS.register("meadow_grass_block", () -> new BlockItem(ModBlocks.MEADOW_GRASS_BLOCK.get(), new Item.Properties()));
 
         // Plants
         ITEMS.register("lotr_fern", () -> new BlockItem(ModBlocks.FERN.get(), new Item.Properties()));
