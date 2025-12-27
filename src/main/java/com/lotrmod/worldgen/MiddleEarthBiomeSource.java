@@ -139,107 +139,107 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
         return switch (lotrBiome) {
             // LINDON
-            case LINDON_BEECH_FOREST -> ModBiomes.LINDON_BEECH_FOREST.getDelegate();
-            case LINDON_MEADOW -> ModBiomes.LINDON_MEADOW.getDelegate();
-            case LINDON_LIMESTONE_HILLS -> ModBiomes.LINDON_LIMESTONE_HILLS.getDelegate();
+            case LINDON_BEECH_FOREST -> ModBiomes.LINDON_BEECH_FOREST;
+            case LINDON_MEADOW -> ModBiomes.LINDON_MEADOW;
+            case LINDON_LIMESTONE_HILLS -> ModBiomes.LINDON_LIMESTONE_HILLS;
 
             // BLUE MOUNTAINS
-            case BLUE_MOUNTAINS -> ModBiomes.BLUE_MOUNTAINS.getDelegate();
+            case BLUE_MOUNTAINS -> ModBiomes.BLUE_MOUNTAINS;
 
             // ERIADOR
-            case ERIADOR_ROLLING_HILLS -> ModBiomes.ERIADOR_ROLLING_HILLS.getDelegate();
-            case ERIADOR_PLAINS -> ModBiomes.ERIADOR_PLAINS.getDelegate();
-            case ERIADOR_MIXED_FOREST -> ModBiomes.ERIADOR_MIXED_FOREST.getDelegate();
-            case ERIADOR_OLD_FOREST -> ModBiomes.ERIADOR_OLD_FOREST.getDelegate();
+            case ERIADOR_ROLLING_HILLS -> ModBiomes.ERIADOR_ROLLING_HILLS;
+            case ERIADOR_PLAINS -> ModBiomes.ERIADOR_PLAINS;
+            case ERIADOR_MIXED_FOREST -> ModBiomes.ERIADOR_MIXED_FOREST;
+            case ERIADOR_OLD_FOREST -> ModBiomes.ERIADOR_OLD_FOREST;
 
             // ARNOR
-            case ARNOR_ROCKY_HILLS -> ModBiomes.ARNOR_ROCKY_HILLS.getDelegate();
-            case ARNOR_PLAINS -> ModBiomes.ARNOR_PLAINS.getDelegate();
-            case ARNOR_OLD_FOREST -> ModBiomes.ARNOR_OLD_FOREST.getDelegate();
-            case ARNOR_MARSH -> ModBiomes.ARNOR_MARSH.getDelegate();
+            case ARNOR_ROCKY_HILLS -> ModBiomes.ARNOR_ROCKY_HILLS;
+            case ARNOR_PLAINS -> ModBiomes.ARNOR_PLAINS;
+            case ARNOR_OLD_FOREST -> ModBiomes.ARNOR_OLD_FOREST;
+            case ARNOR_MARSH -> ModBiomes.ARNOR_MARSH;
 
             // MISTY MOUNTAINS
-            case MISTY_MOUNTAINS -> ModBiomes.MISTY_MOUNTAINS.getDelegate();
+            case MISTY_MOUNTAINS -> ModBiomes.MISTY_MOUNTAINS;
 
             // GREY MOUNTAINS
-            case GREY_MOUNTAINS -> ModBiomes.GREY_MOUNTAINS.getDelegate();
+            case GREY_MOUNTAINS -> ModBiomes.GREY_MOUNTAINS;
 
             // WHITE MOUNTAINS
-            case WHITE_MOUNTAINS -> ModBiomes.WHITE_MOUNTAINS.getDelegate();
+            case WHITE_MOUNTAINS -> ModBiomes.WHITE_MOUNTAINS;
 
             // MOUNTAINS OF SHADOW
-            case MOUNTAINS_OF_SHADOW -> ModBiomes.MOUNTAINS_OF_SHADOW.getDelegate();
+            case MOUNTAINS_OF_SHADOW -> ModBiomes.MOUNTAINS_OF_SHADOW;
 
             // GONDOR
-            case GONDOR_OLIVE_FOREST -> ModBiomes.GONDOR_OLIVE_FOREST.getDelegate();
-            case GONDOR_PLAINS -> ModBiomes.GONDOR_PLAINS.getDelegate();
-            case GONDOR_ROLLING_HILLS -> ModBiomes.GONDOR_ROLLING_HILLS.getDelegate();
+            case GONDOR_OLIVE_FOREST -> ModBiomes.GONDOR_OLIVE_FOREST;
+            case GONDOR_PLAINS -> ModBiomes.GONDOR_PLAINS;
+            case GONDOR_ROLLING_HILLS -> ModBiomes.GONDOR_ROLLING_HILLS;
 
             // HARAD
-            case HARAD_DESERT -> ModBiomes.HARAD_DESERT.getDelegate();
-            case HARAD_SAVANNA -> ModBiomes.HARAD_SAVANNA.getDelegate();
-            case HARAD_JUNGLE -> ModBiomes.HARAD_JUNGLE.getDelegate();
+            case HARAD_DESERT -> ModBiomes.HARAD_DESERT;
+            case HARAD_SAVANNA -> ModBiomes.HARAD_SAVANNA;
+            case HARAD_JUNGLE -> ModBiomes.HARAD_JUNGLE;
 
             // LOTHLORIEN
-            case LOTHLORIEN -> ModBiomes.LOTHLORIEN.getDelegate();
+            case LOTHLORIEN -> ModBiomes.LOTHLORIEN;
 
             // MIRKWOOD
-            case MIRKWOOD -> ModBiomes.MIRKWOOD.getDelegate();
+            case MIRKWOOD -> ModBiomes.MIRKWOOD;
 
             // DALE
-            case DALE_ROCKY_HILLS -> ModBiomes.DALE_ROCKY_HILLS.getDelegate();
-            case DALE_PLAINS -> ModBiomes.DALE_PLAINS.getDelegate();
-            case DALE_MIXED_FOREST -> ModBiomes.DALE_MIXED_FOREST.getDelegate();
+            case DALE_ROCKY_HILLS -> ModBiomes.DALE_ROCKY_HILLS;
+            case DALE_PLAINS -> ModBiomes.DALE_PLAINS;
+            case DALE_MIXED_FOREST -> ModBiomes.DALE_MIXED_FOREST;
 
             // EREBOR
-            case EREBOR -> ModBiomes.EREBOR.getDelegate();
+            case EREBOR -> ModBiomes.EREBOR;
 
             // IRON HILLS
-            case IRON_HILLS -> ModBiomes.IRON_HILLS.getDelegate();
+            case IRON_HILLS -> ModBiomes.IRON_HILLS;
 
             // ROHAN
-            case ROHAN_GRASSLAND -> ModBiomes.ROHAN_GRASSLAND.getDelegate();
-            case ROHAN_ROCKY_HILLS -> ModBiomes.ROHAN_ROCKY_HILLS.getDelegate();
+            case ROHAN_GRASSLAND -> ModBiomes.ROHAN_GRASSLAND;
+            case ROHAN_ROCKY_HILLS -> ModBiomes.ROHAN_ROCKY_HILLS;
 
             // MORDOR
-            case MORDOR_VOLCANIC_WASTE -> ModBiomes.MORDOR_VOLCANIC_WASTE.getDelegate();
+            case MORDOR_VOLCANIC_WASTE -> ModBiomes.MORDOR_VOLCANIC_WASTE;
 
             // RHUN
-            case RHUN_GRASSLAND -> ModBiomes.RHUN_GRASSLAND.getDelegate();
-            case RHUN_SHRUBLANDS -> ModBiomes.RHUN_SHRUBLANDS.getDelegate();
+            case RHUN_GRASSLAND -> ModBiomes.RHUN_GRASSLAND;
+            case RHUN_SHRUBLANDS -> ModBiomes.RHUN_SHRUBLANDS;
 
             // FANGORN FOREST
-            case FANGORN_FOREST -> ModBiomes.FANGORN_FOREST.getDelegate();
+            case FANGORN_FOREST -> ModBiomes.FANGORN_FOREST;
 
             // ANDUIN RIVER
-            case ANDUIN_RIVER -> ModBiomes.ANDUIN_RIVER.getDelegate();
+            case ANDUIN_RIVER -> ModBiomes.ANDUIN_RIVER;
 
             // VALE OF ANDUIN
-            case VALE_OF_ANDUIN_FLOODPLAINS -> ModBiomes.VALE_OF_ANDUIN_FLOODPLAINS.getDelegate();
+            case VALE_OF_ANDUIN_FLOODPLAINS -> ModBiomes.VALE_OF_ANDUIN_FLOODPLAINS;
 
             // DEAD LANDS
-            case DEAD_LANDS_EMPTY -> ModBiomes.DEAD_LANDS_EMPTY.getDelegate();
+            case DEAD_LANDS_EMPTY -> ModBiomes.DEAD_LANDS_EMPTY;
 
             // CELDUIN
-            case CELDUIN_RIVER -> ModBiomes.CELDUIN_RIVER.getDelegate();
+            case CELDUIN_RIVER -> ModBiomes.CELDUIN_RIVER;
 
             // EASTERN RHOVANIAN PLAINS
-            case EASTERN_RHOVANIAN_GRASSLAND -> ModBiomes.EASTERN_RHOVANIAN_GRASSLAND.getDelegate();
-            case EASTERN_RHOVANIAN_SHRUBLANDS -> ModBiomes.EASTERN_RHOVANIAN_SHRUBLANDS.getDelegate();
+            case EASTERN_RHOVANIAN_GRASSLAND -> ModBiomes.EASTERN_RHOVANIAN_GRASSLAND;
+            case EASTERN_RHOVANIAN_SHRUBLANDS -> ModBiomes.EASTERN_RHOVANIAN_SHRUBLANDS;
 
             // SEA OF RHUN
-            case SEA_OF_RHUN -> ModBiomes.SEA_OF_RHUN.getDelegate();
+            case SEA_OF_RHUN -> ModBiomes.SEA_OF_RHUN;
 
             // FORODWAITH
-            case FORODWAITH_TUNDRA -> ModBiomes.FORODWAITH_TUNDRA.getDelegate();
-            case FORODWAITH_ICY_MOUNTAINS -> ModBiomes.FORODWAITH_ICY_MOUNTAINS.getDelegate();
-            case FORODWAITH_ROCKY_BARRENS -> ModBiomes.FORODWAITH_ROCKY_BARRENS.getDelegate();
+            case FORODWAITH_TUNDRA -> ModBiomes.FORODWAITH_TUNDRA;
+            case FORODWAITH_ICY_MOUNTAINS -> ModBiomes.FORODWAITH_ICY_MOUNTAINS;
+            case FORODWAITH_ROCKY_BARRENS -> ModBiomes.FORODWAITH_ROCKY_BARRENS;
 
             // THE SHIRE
-            case THE_SHIRE -> ModBiomes.THE_SHIRE.getDelegate();
+            case THE_SHIRE -> ModBiomes.THE_SHIRE;
 
             // RIVENDELL
-            case RIVENDELL -> ModBiomes.RIVENDELL.getDelegate();
+            case RIVENDELL -> ModBiomes.RIVENDELL;
         };
     }
 
