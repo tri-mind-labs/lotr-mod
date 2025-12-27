@@ -25,19 +25,26 @@ import java.util.stream.Stream;
 public class MiddleEarthBiomeSource extends BiomeSource {
     public static final MapCodec<MiddleEarthBiomeSource> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
-                    Biome.CODEC.fieldOf("fallback_biome").forGetter(source -> source.fallbackBiome)
+                    Biome.CODEC.fieldOf("ocean_biome").forGetter(source -> source.oceanBiome),
+                    Biome.CODEC.fieldOf("land_biome").forGetter(source -> source.landBiome),
+                    Biome.CODEC.fieldOf("beach_biome").forGetter(source -> source.beachBiome)
             ).apply(instance, MiddleEarthBiomeSource::new)
     );
 
-    private final Holder<Biome> fallbackBiome;
+    private final Holder<Biome> oceanBiome;
+    private final Holder<Biome> landBiome;
+    private final Holder<Biome> beachBiome;
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
     private final PerlinSimplexNoise largeBiomeNoise; // Large-scale biome zones
     private final PerlinSimplexNoise smallBiomeNoise; // Small-scale variation
 
-    public MiddleEarthBiomeSource(Holder<Biome> fallbackBiome) {
-        this.fallbackBiome = fallbackBiome;
+    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome) {
+        // Store the legacy parameters (not used, but needed for codec compatibility)
+        this.oceanBiome = oceanBiome;
+        this.landBiome = landBiome;
+        this.beachBiome = beachBiome;
 
         // Initialize noise generators for smooth biome transitions
         RandomSource random = RandomSource.create(54321); // Fixed seed for consistency
@@ -48,8 +55,11 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // Return all registered LOTR biomes
-        return ModBiomes.BIOMES.getEntries().stream().map(entry -> (Holder<Biome>) entry);
+        // Return all registered LOTR biomes plus legacy biomes for compatibility
+        return Stream.concat(
+                Stream.of(oceanBiome, landBiome, beachBiome),
+                ModBiomes.BIOMES.getEntries().stream().map(entry -> (Holder<Biome>) entry)
+        );
     }
 
     @Override
