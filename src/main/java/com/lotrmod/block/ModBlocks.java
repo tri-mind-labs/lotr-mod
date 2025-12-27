@@ -78,11 +78,11 @@ public class ModBlocks {
             () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.DIRT)));
 
     // ==================== SAND ====================
-    public static final DeferredBlock<FallingBlock> SAND = BLOCKS.register("lotr_sand",
-            () -> new FallingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.SAND)));
+    public static final DeferredBlock<Block> SAND = BLOCKS.register("lotr_sand",
+            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.SAND)));
 
-    public static final DeferredBlock<FallingBlock> RED_SAND = BLOCKS.register("lotr_red_sand",
-            () -> new FallingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_SAND)));
+    public static final DeferredBlock<Block> RED_SAND = BLOCKS.register("lotr_red_sand",
+            () -> new Block(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_SAND)));
 
     // ==================== GRASS & SURFACE ====================
     public static final DeferredBlock<GrassBlock> GRASS_BLOCK = BLOCKS.register("lotr_grass_block",
