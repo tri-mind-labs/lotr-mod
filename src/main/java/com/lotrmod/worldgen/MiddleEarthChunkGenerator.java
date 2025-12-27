@@ -358,7 +358,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * - Multi-octave noise for natural terrain variation
      * - Landmask influence for coastline accuracy
      * - BIOME-SPECIFIC HEIGHT: Mountains are tall, rivers are low, hills have rolling terrain
-     * - BIOME HEIGHT BLENDING: Smooth transitions between biomes to eliminate cliffs
+     * - BIOME MODIFIER BLENDING: Smooth transitions by blending biome properties, not heights
      * - Region-based modifications for unique landscapes
      *
      * @param worldX The X coordinate in world space
@@ -366,73 +366,21 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * @return The terrain height (Y coordinate) at this position
      */
     private int getTerrainHeight(int worldX, int worldZ) {
-        // Use biome blending for smooth transitions
-        return getTerrainHeightWithBlending(worldX, worldZ);
+        double height = getTerrainHeightAtBiome(worldX, worldZ);
+        return (int) Math.round(height);
     }
 
     /**
-     * Calculate terrain height with biome blending for smooth transitions.
-     * Uses 5x5 grid (25 samples) with 12-block spacing (non-aligned with chunks)
-     * to create wide, smooth blending zones across biome boundaries.
-     */
-    private int getTerrainHeightWithBlending(int worldX, int worldZ) {
-        // Wide blending radius for smooth biome transitions
-        final int BLEND_RADIUS = 48;
-        // Use 12-block spacing to avoid aligning with 16-block chunk boundaries!
-        final int SAMPLE_STEP = 12;
-        final int HALF_SAMPLES = 2; // 5x5 grid: 2 samples on each side of center
-
-        double totalHeight = 0.0;
-        double totalWeight = 0.0;
-
-        // Sample in a 5x5 grid: (-24, -12, 0, 12, 24) × (-24, -12, 0, 12, 24)
-        // This creates 25 samples that DON'T align with chunk boundaries
-        for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
-            for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
-                int sampleX = worldX + dx;
-                int sampleZ = worldZ + dz;
-
-                // Calculate weight based on distance (closer samples have more influence)
-                double distance = Math.sqrt(dx * dx + dz * dz);
-
-                // Skip samples outside the blend radius
-                if (distance > BLEND_RADIUS) {
-                    continue;
-                }
-
-                double weight = 1.0 - (distance / BLEND_RADIUS);
-                weight = weight * weight; // Square for smoother falloff
-
-                double height = getTerrainHeightAtBiome(sampleX, sampleZ);
-                totalHeight += height * weight;
-                totalWeight += weight;
-            }
-        }
-
-        // Weighted average
-        double blendedHeight = totalWeight > 0 ? (totalHeight / totalWeight) : getTerrainHeightAtBiome(worldX, worldZ);
-
-        return (int) Math.round(blendedHeight);
-    }
-
-    /**
-     * Calculate the raw terrain height at a specific position for its biome.
-     * This is the internal version used for blending - returns a double for precision.
+     * Calculate the raw terrain height at a specific position with blended biome modifiers.
+     * This uses biome property blending to create smooth transitions between different terrain types.
+     * Returns a double for precision.
      */
     private double getTerrainHeightAtBiome(int worldX, int worldZ) {
-        // Get region and biome at this position
-        Region region = RegionMapLoader.isLoaded() ? RegionMapLoader.getRegion(worldX, worldZ) : null;
-        LOTRBiome biome = getBiomeAt(worldX, worldZ);
-
-        // Rivers force low height (below sea level)
-        if (biome != null && biome.isRiver()) {
-            return (double) (SEA_LEVEL - 8); // River channel depth
-        }
         // =====================================
         // STEP 1: Generate base terrain using multi-octave noise
         // =====================================
-        // This creates natural, organic terrain variation similar to vanilla Minecraft
-        // Each noise layer adds features at a different scale
+        // This creates the foundation - continuous across all biomes
+        // The noise is the SAME everywhere; only biome modifiers change
 
         // Large scale: Major landforms and continental shapes
         double largeScale = 1.0 / LARGE_SCALE_WAVELENGTH;
@@ -467,33 +415,27 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         ) * DETAIL_SCALE_AMPLITUDE;
 
         // =====================================
-        // STEP 1.5: Add biome-specific height modifiers
+        // STEP 1.5: Get BLENDED biome modifiers
         // =====================================
-        // Different biome types have vastly different terrain characteristics
-        double baseTerrainHeight;
-        double biomeHeightModifier = 0.0;
+        // Instead of hard-switching between mountain/hill/flat based on current biome,
+        // we blend the biome properties from nearby positions.
+        // This creates smooth transitions!
 
-        if (biome != null) {
-            if (biome.isMountain()) {
-                // Mountains: Full noise variation + additional mountain height
-                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
-                biomeHeightModifier = generateMountains(worldX, worldZ, biome);
-            } else if (biome.isHilly()) {
-                // Hills: Full noise for rolling terrain
-                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
-                biomeHeightModifier = generateHills(worldX, worldZ);
-            } else if (isFlatBiome(biome)) {
-                // Flat biomes (plains, deserts, grasslands): Subtle noise variation
-                // Use reduced noise for mostly flat terrain with gentle undulations
-                baseTerrainHeight = SEA_LEVEL + (largeNoise * 0.4) + (mediumNoise * 0.3) + (smallNoise * 0.2);
-            } else {
-                // Default: Moderate noise variation
-                baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + (smallNoise * 0.5) + (detailNoise * 0.3);
-            }
-        } else {
-            // No biome info - use full noise
-            baseTerrainHeight = SEA_LEVEL + largeNoise + mediumNoise + smallNoise + detailNoise;
-        }
+        BiomeModifiers blendedModifiers = getBlendedBiomeModifiers(worldX, worldZ);
+
+        // Apply noise multipliers based on blended biome type
+        double noiseMultiplier = blendedModifiers.flatFactor * 0.3 +
+                                  blendedModifiers.hillFactor * 0.7 +
+                                  blendedModifiers.mountainFactor * 1.0;
+
+        double baseTerrainHeight = SEA_LEVEL +
+                                   (largeNoise * noiseMultiplier) +
+                                   (mediumNoise * noiseMultiplier) +
+                                   (smallNoise * noiseMultiplier * 0.8) +
+                                   (detailNoise * noiseMultiplier * 0.6);
+
+        // Add blended biome-specific height additions (mountains, hills, river depth)
+        double biomeHeightModifier = blendedModifiers.heightAddition;
 
         // =====================================
         // STEP 2: Get landmask height bias
@@ -637,6 +579,100 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             return null;
         }
         return middleEarthSource.getLOTRBiomeAt(worldX, worldZ);
+    }
+
+    /**
+     * Helper class to store blended biome modifiers
+     */
+    private static class BiomeModifiers {
+        double flatFactor = 0.0;      // 0-1: How flat the terrain should be
+        double hillFactor = 0.0;      // 0-1: How hilly the terrain should be
+        double mountainFactor = 0.0;  // 0-1: How mountainous the terrain should be
+        double riverFactor = 0.0;     // 0-1: How river-like the terrain should be
+        double heightAddition = 0.0;  // Actual height to add (blended from mountains/hills/rivers)
+    }
+
+    /**
+     * Calculate blended biome modifiers by sampling nearby biomes.
+     * This creates smooth transitions between different terrain types.
+     *
+     * Uses a large radius (96 blocks) with sparse sampling to create gradual, natural blending.
+     */
+    private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
+        BiomeModifiers result = new BiomeModifiers();
+
+        // CRITICAL: Use a LARGE blend radius for smooth transitions between dramatically different biomes
+        // Mountains can be 100+ blocks tall, plains are ~65 blocks, so we need a wide transition zone
+        final int BLEND_RADIUS = 96;   // Wide radius for gradual transitions
+        final int SAMPLE_STEP = 16;     // Coarse sampling for performance
+        final int HALF_SAMPLES = 3;     // 7x7 grid (49 samples total)
+
+        double totalWeight = 0.0;
+        double totalFlatWeight = 0.0;
+        double totalHillWeight = 0.0;
+        double totalMountainWeight = 0.0;
+        double totalRiverWeight = 0.0;
+        double totalHeightAddition = 0.0;
+
+        // Sample in a 7x7 grid: (-48, -32, -16, 0, 16, 32, 48) × (-48, -32, -16, 0, 16, 32, 48)
+        for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
+            for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
+                int sampleX = worldX + dx;
+                int sampleZ = worldZ + dz;
+
+                // Calculate weight based on distance (closer samples have more influence)
+                double distance = Math.sqrt(dx * dx + dz * dz);
+
+                // Skip samples outside the blend radius
+                if (distance > BLEND_RADIUS) {
+                    continue;
+                }
+
+                // Linear falloff weight (NOT squared - we want more influence from distant samples)
+                double weight = 1.0 - (distance / BLEND_RADIUS);
+
+                // Get biome at this sample position
+                LOTRBiome biome = getBiomeAt(sampleX, sampleZ);
+                if (biome == null) {
+                    continue;
+                }
+
+                // Classify biome and accumulate weighted factors
+                if (biome.isRiver()) {
+                    totalRiverWeight += weight;
+                    totalHeightAddition += weight * (SEA_LEVEL - 8 - SEA_LEVEL); // River depth modifier
+                } else if (biome.isMountain()) {
+                    totalMountainWeight += weight;
+                    // Calculate mountain height at this sample
+                    double mountainHeight = generateMountains(sampleX, sampleZ, biome);
+                    totalHeightAddition += weight * mountainHeight;
+                } else if (biome.isHilly()) {
+                    totalHillWeight += weight;
+                    double hillHeight = generateHills(sampleX, sampleZ);
+                    totalHeightAddition += weight * hillHeight;
+                } else if (isFlatBiome(biome)) {
+                    totalFlatWeight += weight;
+                    // Flat biomes add no height modification
+                } else {
+                    // Default: treat as slightly hilly
+                    totalHillWeight += weight * 0.5;
+                    totalFlatWeight += weight * 0.5;
+                }
+
+                totalWeight += weight;
+            }
+        }
+
+        // Normalize the factors
+        if (totalWeight > 0) {
+            result.flatFactor = totalFlatWeight / totalWeight;
+            result.hillFactor = totalHillWeight / totalWeight;
+            result.mountainFactor = totalMountainWeight / totalWeight;
+            result.riverFactor = totalRiverWeight / totalWeight;
+            result.heightAddition = totalHeightAddition / totalWeight;
+        }
+
+        return result;
     }
 
     /**
