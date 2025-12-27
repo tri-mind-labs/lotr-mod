@@ -191,21 +191,18 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         }
 
         return switch (biome) {
-            // Deserts - VANILLA SAND (as requested)
+            // Deserts - VANILLA SAND
             case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
-            // Dry grasslands - VANILLA GRASS (as requested)
+            // Grasslands - VANILLA GRASS
             case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND,
-                 HARAD_SAVANNA -> Blocks.GRASS_BLOCK.defaultBlockState();
+                 HARAD_SAVANNA, LINDON_MEADOW -> Blocks.GRASS_BLOCK.defaultBlockState();
 
-            // Meadows - custom meadow grass
-            case LINDON_MEADOW -> ModBlocks.MEADOW_GRASS_BLOCK.get().defaultBlockState();
+            // Marshes/Swamps - VANILLA MUD
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
-            // Marshes/Swamps - custom mud
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
-
-            // Rivers - custom silt
-            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
+            // Rivers - VANILLA GRAVEL
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
 
             // Mountains - stone surfaces
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS,
@@ -220,8 +217,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Mordor - custom volcanic ash
             case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Dark forests - custom coarse dirt
-            case MIRKWOOD -> ModBlocks.COARSE_DIRT.get().defaultBlockState();
+            // Dark forests - VANILLA COARSE DIRT
+            case MIRKWOOD -> Blocks.COARSE_DIRT.defaultBlockState();
 
             // Dead/Empty lands - custom cracked mud
             case DEAD_LANDS_EMPTY -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
@@ -232,7 +229,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Shrublands - custom cracked mud
             case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
 
-            // Default - VANILLA GRASS (as requested)
+            // Default - VANILLA GRASS
             default -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
     }
@@ -269,11 +266,11 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Desert - VANILLA SAND subsurface
             case HARAD_DESERT -> Blocks.SAND.defaultBlockState();
 
-            // Marshes - custom mud
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> ModBlocks.MUD.get().defaultBlockState();
+            // Marshes - VANILLA MUD
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
-            // Rivers - custom silt
-            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
+            // Rivers - VANILLA GRAVEL
+            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
 
             // Mountains - stone (volcanic for Mountains of Shadow)
             case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
@@ -283,8 +280,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Mordor - custom volcanic ash
             case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Default - custom dirt
-            default -> ModBlocks.DIRT.get().defaultBlockState();
+            // Default - VANILLA DIRT
+            default -> Blocks.DIRT.defaultBlockState();
         };
     }
 
@@ -375,23 +372,21 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
     /**
      * Calculate terrain height with biome blending for smooth transitions.
-     * Samples nearby positions in a 3x3 grid over a 32-block radius.
-     * Uses 9 samples with 16-block spacing for wide, smooth blending zones.
+     * Uses 5x5 grid (25 samples) with 12-block spacing (non-aligned with chunks)
+     * to create wide, smooth blending zones across biome boundaries.
      */
     private int getTerrainHeightWithBlending(int worldX, int worldZ) {
-        // Wider blending radius for smooth biome transitions (32 blocks)
-        final int BLEND_RADIUS = 32;
-        final int SAMPLE_STEP = 16;    // Sample every 16 blocks for 3x3 grid
+        // Wide blending radius for smooth biome transitions
+        final int BLEND_RADIUS = 48;
+        // Use 12-block spacing to avoid aligning with 16-block chunk boundaries!
+        final int SAMPLE_STEP = 12;
+        final int HALF_SAMPLES = 2; // 5x5 grid: 2 samples on each side of center
 
         double totalHeight = 0.0;
         double totalWeight = 0.0;
 
-        // Sample in a 3x3 grid: (-32, -16, 0, 16, 32) but with 16-block steps
-        // This creates samples at: (-32, -16, 0, 16, 32) × (-32, -16, 0, 16, 32)
-        // Wait, that's 5x5. Let me recalculate for 3x3:
-        // For 3x3 we need: (-16, 0, 16) × (-16, 0, 16)
-        final int HALF_SAMPLES = 1; // Number of samples on each side of center
-
+        // Sample in a 5x5 grid: (-24, -12, 0, 12, 24) × (-24, -12, 0, 12, 24)
+        // This creates 25 samples that DON'T align with chunk boundaries
         for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
             for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
                 int sampleX = worldX + dx;
@@ -400,7 +395,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                 // Calculate weight based on distance (closer samples have more influence)
                 double distance = Math.sqrt(dx * dx + dz * dz);
 
-                // All 9 samples should be within 32-block radius
+                // Skip samples outside the blend radius
                 if (distance > BLEND_RADIUS) {
                     continue;
                 }

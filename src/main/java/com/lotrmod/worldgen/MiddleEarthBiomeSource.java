@@ -152,6 +152,16 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         int worldX = x << 2;
         int worldZ = z << 2;
 
+        // Step 0: Check if this is ocean based on landmask
+        // Ocean areas (brightness > 200) should use vanilla ocean biome
+        if (LandmaskLoader.isLoaded()) {
+            double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+            if (brightness > 200.0) {
+                // This is ocean - return vanilla ocean biome
+                return oceanBiome;
+            }
+        }
+
         // Step 1: Get the region from the region map
         Region region = getRegion(worldX, worldZ);
 
