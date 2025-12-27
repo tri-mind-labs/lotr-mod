@@ -201,8 +201,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Marshes/Swamps - VANILLA MUD
             case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
-            // Rivers - VANILLA GRAVEL
-            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
+            // Rivers - CUSTOM SILT
+            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
 
             // Mountains - stone surfaces
             case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS,
@@ -229,8 +229,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Shrublands - custom cracked mud
             case RHUN_SHRUBLANDS, EASTERN_RHOVANIAN_SHRUBLANDS -> ModBlocks.CRACKED_MUD.get().defaultBlockState();
 
-            // Default - VANILLA GRASS
-            default -> Blocks.GRASS_BLOCK.defaultBlockState();
+            // Default - CUSTOM GRASS
+            default -> ModBlocks.GRASS_BLOCK.get().defaultBlockState();
         };
     }
 
@@ -269,8 +269,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Marshes - VANILLA MUD
             case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> Blocks.MUD.defaultBlockState();
 
-            // Rivers - VANILLA GRAVEL
-            case ANDUIN_RIVER, CELDUIN_RIVER -> Blocks.GRAVEL.defaultBlockState();
+            // Rivers - CUSTOM SILT
+            case ANDUIN_RIVER, CELDUIN_RIVER -> ModBlocks.SILT.get().defaultBlockState();
 
             // Mountains - stone (volcanic for Mountains of Shadow)
             case MOUNTAINS_OF_SHADOW -> ModBlocks.STONE_TYPES.get("volcanic_stone").stone.get().defaultBlockState();
@@ -280,8 +280,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             // Mordor - custom volcanic ash
             case MORDOR_VOLCANIC_WASTE -> ModBlocks.VOLCANIC_ASH_BLOCK.get().defaultBlockState();
 
-            // Default - VANILLA DIRT
-            default -> Blocks.DIRT.defaultBlockState();
+            // Default - CUSTOM DIRT
+            default -> ModBlocks.DIRT.get().defaultBlockState();
         };
     }
 
