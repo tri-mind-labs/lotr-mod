@@ -8,6 +8,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
@@ -15,7 +16,9 @@ import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -34,6 +37,9 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final Holder<Biome> oceanBiome;
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
+
+    // Cache of biome holders to avoid repeated lookups
+    private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
@@ -133,112 +139,121 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
+     * Uses a cache to avoid repeated DeferredHolder access and creates direct holders for serialization
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        return switch (lotrBiome) {
-            // LINDON
-            case LINDON_BEECH_FOREST -> ModBiomes.LINDON_BEECH_FOREST;
-            case LINDON_MEADOW -> ModBiomes.LINDON_MEADOW;
-            case LINDON_LIMESTONE_HILLS -> ModBiomes.LINDON_LIMESTONE_HILLS;
+        // Check cache first
+        return biomeHolderCache.computeIfAbsent(lotrBiome, biome -> {
+            // Get the DeferredHolder and convert to a direct holder
+            // This avoids registry binding issues during chunk serialization
+            Biome biomeValue = switch (biome) {
+                // LINDON
+                case LINDON_BEECH_FOREST -> ModBiomes.LINDON_BEECH_FOREST.value();
+                case LINDON_MEADOW -> ModBiomes.LINDON_MEADOW.value();
+                case LINDON_LIMESTONE_HILLS -> ModBiomes.LINDON_LIMESTONE_HILLS.value();
 
-            // BLUE MOUNTAINS
-            case BLUE_MOUNTAINS -> ModBiomes.BLUE_MOUNTAINS;
+                // BLUE MOUNTAINS
+                case BLUE_MOUNTAINS -> ModBiomes.BLUE_MOUNTAINS.value();
 
-            // ERIADOR
-            case ERIADOR_ROLLING_HILLS -> ModBiomes.ERIADOR_ROLLING_HILLS;
-            case ERIADOR_PLAINS -> ModBiomes.ERIADOR_PLAINS;
-            case ERIADOR_MIXED_FOREST -> ModBiomes.ERIADOR_MIXED_FOREST;
-            case ERIADOR_OLD_FOREST -> ModBiomes.ERIADOR_OLD_FOREST;
+                // ERIADOR
+                case ERIADOR_ROLLING_HILLS -> ModBiomes.ERIADOR_ROLLING_HILLS.value();
+                case ERIADOR_PLAINS -> ModBiomes.ERIADOR_PLAINS.value();
+                case ERIADOR_MIXED_FOREST -> ModBiomes.ERIADOR_MIXED_FOREST.value();
+                case ERIADOR_OLD_FOREST -> ModBiomes.ERIADOR_OLD_FOREST.value();
 
-            // ARNOR
-            case ARNOR_ROCKY_HILLS -> ModBiomes.ARNOR_ROCKY_HILLS;
-            case ARNOR_PLAINS -> ModBiomes.ARNOR_PLAINS;
-            case ARNOR_OLD_FOREST -> ModBiomes.ARNOR_OLD_FOREST;
-            case ARNOR_MARSH -> ModBiomes.ARNOR_MARSH;
+                // ARNOR
+                case ARNOR_ROCKY_HILLS -> ModBiomes.ARNOR_ROCKY_HILLS.value();
+                case ARNOR_PLAINS -> ModBiomes.ARNOR_PLAINS.value();
+                case ARNOR_OLD_FOREST -> ModBiomes.ARNOR_OLD_FOREST.value();
+                case ARNOR_MARSH -> ModBiomes.ARNOR_MARSH.value();
 
-            // MISTY MOUNTAINS
-            case MISTY_MOUNTAINS -> ModBiomes.MISTY_MOUNTAINS;
+                // MISTY MOUNTAINS
+                case MISTY_MOUNTAINS -> ModBiomes.MISTY_MOUNTAINS.value();
 
-            // GREY MOUNTAINS
-            case GREY_MOUNTAINS -> ModBiomes.GREY_MOUNTAINS;
+                // GREY MOUNTAINS
+                case GREY_MOUNTAINS -> ModBiomes.GREY_MOUNTAINS.value();
 
-            // WHITE MOUNTAINS
-            case WHITE_MOUNTAINS -> ModBiomes.WHITE_MOUNTAINS;
+                // WHITE MOUNTAINS
+                case WHITE_MOUNTAINS -> ModBiomes.WHITE_MOUNTAINS.value();
 
-            // MOUNTAINS OF SHADOW
-            case MOUNTAINS_OF_SHADOW -> ModBiomes.MOUNTAINS_OF_SHADOW;
+                // MOUNTAINS OF SHADOW
+                case MOUNTAINS_OF_SHADOW -> ModBiomes.MOUNTAINS_OF_SHADOW.value();
 
-            // GONDOR
-            case GONDOR_OLIVE_FOREST -> ModBiomes.GONDOR_OLIVE_FOREST;
-            case GONDOR_PLAINS -> ModBiomes.GONDOR_PLAINS;
-            case GONDOR_ROLLING_HILLS -> ModBiomes.GONDOR_ROLLING_HILLS;
+                // GONDOR
+                case GONDOR_OLIVE_FOREST -> ModBiomes.GONDOR_OLIVE_FOREST.value();
+                case GONDOR_PLAINS -> ModBiomes.GONDOR_PLAINS.value();
+                case GONDOR_ROLLING_HILLS -> ModBiomes.GONDOR_ROLLING_HILLS.value();
 
-            // HARAD
-            case HARAD_DESERT -> ModBiomes.HARAD_DESERT;
-            case HARAD_SAVANNA -> ModBiomes.HARAD_SAVANNA;
-            case HARAD_JUNGLE -> ModBiomes.HARAD_JUNGLE;
+                // HARAD
+                case HARAD_DESERT -> ModBiomes.HARAD_DESERT.value();
+                case HARAD_SAVANNA -> ModBiomes.HARAD_SAVANNA.value();
+                case HARAD_JUNGLE -> ModBiomes.HARAD_JUNGLE.value();
 
-            // LOTHLORIEN
-            case LOTHLORIEN -> ModBiomes.LOTHLORIEN;
+                // LOTHLORIEN
+                case LOTHLORIEN -> ModBiomes.LOTHLORIEN.value();
 
-            // MIRKWOOD
-            case MIRKWOOD -> ModBiomes.MIRKWOOD;
+                // MIRKWOOD
+                case MIRKWOOD -> ModBiomes.MIRKWOOD.value();
 
-            // DALE
-            case DALE_ROCKY_HILLS -> ModBiomes.DALE_ROCKY_HILLS;
-            case DALE_PLAINS -> ModBiomes.DALE_PLAINS;
-            case DALE_MIXED_FOREST -> ModBiomes.DALE_MIXED_FOREST;
+                // DALE
+                case DALE_ROCKY_HILLS -> ModBiomes.DALE_ROCKY_HILLS.value();
+                case DALE_PLAINS -> ModBiomes.DALE_PLAINS.value();
+                case DALE_MIXED_FOREST -> ModBiomes.DALE_MIXED_FOREST.value();
 
-            // EREBOR
-            case EREBOR -> ModBiomes.EREBOR;
+                // EREBOR
+                case EREBOR -> ModBiomes.EREBOR.value();
 
-            // IRON HILLS
-            case IRON_HILLS -> ModBiomes.IRON_HILLS;
+                // IRON HILLS
+                case IRON_HILLS -> ModBiomes.IRON_HILLS.value();
 
-            // ROHAN
-            case ROHAN_GRASSLAND -> ModBiomes.ROHAN_GRASSLAND;
-            case ROHAN_ROCKY_HILLS -> ModBiomes.ROHAN_ROCKY_HILLS;
+                // ROHAN
+                case ROHAN_GRASSLAND -> ModBiomes.ROHAN_GRASSLAND.value();
+                case ROHAN_ROCKY_HILLS -> ModBiomes.ROHAN_ROCKY_HILLS.value();
 
-            // MORDOR
-            case MORDOR_VOLCANIC_WASTE -> ModBiomes.MORDOR_VOLCANIC_WASTE;
+                // MORDOR
+                case MORDOR_VOLCANIC_WASTE -> ModBiomes.MORDOR_VOLCANIC_WASTE.value();
 
-            // RHUN
-            case RHUN_GRASSLAND -> ModBiomes.RHUN_GRASSLAND;
-            case RHUN_SHRUBLANDS -> ModBiomes.RHUN_SHRUBLANDS;
+                // RHUN
+                case RHUN_GRASSLAND -> ModBiomes.RHUN_GRASSLAND.value();
+                case RHUN_SHRUBLANDS -> ModBiomes.RHUN_SHRUBLANDS.value();
 
-            // FANGORN FOREST
-            case FANGORN_FOREST -> ModBiomes.FANGORN_FOREST;
+                // FANGORN FOREST
+                case FANGORN_FOREST -> ModBiomes.FANGORN_FOREST.value();
 
-            // ANDUIN RIVER
-            case ANDUIN_RIVER -> ModBiomes.ANDUIN_RIVER;
+                // ANDUIN RIVER
+                case ANDUIN_RIVER -> ModBiomes.ANDUIN_RIVER.value();
 
-            // VALE OF ANDUIN
-            case VALE_OF_ANDUIN_FLOODPLAINS -> ModBiomes.VALE_OF_ANDUIN_FLOODPLAINS;
+                // VALE OF ANDUIN
+                case VALE_OF_ANDUIN_FLOODPLAINS -> ModBiomes.VALE_OF_ANDUIN_FLOODPLAINS.value();
 
-            // DEAD LANDS
-            case DEAD_LANDS_EMPTY -> ModBiomes.DEAD_LANDS_EMPTY;
+                // DEAD LANDS
+                case DEAD_LANDS_EMPTY -> ModBiomes.DEAD_LANDS_EMPTY.value();
 
-            // CELDUIN
-            case CELDUIN_RIVER -> ModBiomes.CELDUIN_RIVER;
+                // CELDUIN
+                case CELDUIN_RIVER -> ModBiomes.CELDUIN_RIVER.value();
 
-            // EASTERN RHOVANIAN PLAINS
-            case EASTERN_RHOVANIAN_GRASSLAND -> ModBiomes.EASTERN_RHOVANIAN_GRASSLAND;
-            case EASTERN_RHOVANIAN_SHRUBLANDS -> ModBiomes.EASTERN_RHOVANIAN_SHRUBLANDS;
+                // EASTERN RHOVANIAN PLAINS
+                case EASTERN_RHOVANIAN_GRASSLAND -> ModBiomes.EASTERN_RHOVANIAN_GRASSLAND.value();
+                case EASTERN_RHOVANIAN_SHRUBLANDS -> ModBiomes.EASTERN_RHOVANIAN_SHRUBLANDS.value();
 
-            // SEA OF RHUN
-            case SEA_OF_RHUN -> ModBiomes.SEA_OF_RHUN;
+                // SEA OF RHUN
+                case SEA_OF_RHUN -> ModBiomes.SEA_OF_RHUN.value();
 
-            // FORODWAITH
-            case FORODWAITH_TUNDRA -> ModBiomes.FORODWAITH_TUNDRA;
-            case FORODWAITH_ICY_MOUNTAINS -> ModBiomes.FORODWAITH_ICY_MOUNTAINS;
-            case FORODWAITH_ROCKY_BARRENS -> ModBiomes.FORODWAITH_ROCKY_BARRENS;
+                // FORODWAITH
+                case FORODWAITH_TUNDRA -> ModBiomes.FORODWAITH_TUNDRA.value();
+                case FORODWAITH_ICY_MOUNTAINS -> ModBiomes.FORODWAITH_ICY_MOUNTAINS.value();
+                case FORODWAITH_ROCKY_BARRENS -> ModBiomes.FORODWAITH_ROCKY_BARRENS.value();
 
-            // THE SHIRE
-            case THE_SHIRE -> ModBiomes.THE_SHIRE;
+                // THE SHIRE
+                case THE_SHIRE -> ModBiomes.THE_SHIRE.value();
 
-            // RIVENDELL
-            case RIVENDELL -> ModBiomes.RIVENDELL;
-        };
+                // RIVENDELL
+                case RIVENDELL -> ModBiomes.RIVENDELL.value();
+            };
+
+            // Return a direct holder that doesn't require registry binding during serialization
+            return Holder.direct(biomeValue);
+        });
     }
 
     /**
