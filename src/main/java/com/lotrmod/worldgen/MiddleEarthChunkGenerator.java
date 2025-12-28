@@ -423,19 +423,40 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         BiomeModifiers blendedModifiers = getBlendedBiomeModifiers(worldX, worldZ);
 
+        // =====================================
+        // STEP 1.6: Generate terrain variation noise AT THE QUERY POSITION
+        // =====================================
+        // CRITICAL FIX: Generate ALL noise at worldX, worldZ (the query position)
+        // NOT at the sample positions! This ensures the same underlying terrain
+        // features flow smoothly across biome boundaries.
+
+        // Generate mountain-specific terrain variation (at query position)
+        double mountainVariation = 0.0;
+        if (blendedModifiers.mountainFactor > 0.01 || blendedModifiers.mountainBaseHeight > 0.01) {
+            mountainVariation = generateMountainVariationNoise(worldX, worldZ) * blendedModifiers.mountainBaseHeight;
+        }
+
+        // Generate hill-specific terrain variation (at query position)
+        double hillVariation = 0.0;
+        if (blendedModifiers.hillFactor > 0.01) {
+            hillVariation = generateHillVariationNoise(worldX, worldZ);
+        }
+
         // Apply noise multipliers based on blended biome type
-        double noiseMultiplier = blendedModifiers.flatFactor * 0.3 +
-                                  blendedModifiers.hillFactor * 0.7 +
-                                  blendedModifiers.mountainFactor * 1.0;
+        // This affects the base multi-scale noise (large/medium/small/detail)
+        double baseNoiseMultiplier = blendedModifiers.terrainVariationScale;
 
         double baseTerrainHeight = SEA_LEVEL +
-                                   (largeNoise * noiseMultiplier) +
-                                   (mediumNoise * noiseMultiplier) +
-                                   (smallNoise * noiseMultiplier * 0.8) +
-                                   (detailNoise * noiseMultiplier * 0.6);
+                                   (largeNoise * baseNoiseMultiplier) +
+                                   (mediumNoise * baseNoiseMultiplier) +
+                                   (smallNoise * baseNoiseMultiplier * 0.8) +
+                                   (detailNoise * baseNoiseMultiplier * 0.6);
 
-        // Add blended biome-specific height additions (mountains, hills, river depth)
-        double biomeHeightModifier = blendedModifiers.heightAddition;
+        // Add blended terrain variations (mountains, hills) - generated at query position!
+        double terrainVariation = mountainVariation + hillVariation;
+
+        // Add blended base height offset (e.g., rivers = -8)
+        double biomeHeightModifier = blendedModifiers.baseHeightOffset + terrainVariation;
 
         // =====================================
         // STEP 2: Get landmask height bias
@@ -589,7 +610,11 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double hillFactor = 0.0;      // 0-1: How hilly the terrain should be
         double mountainFactor = 0.0;  // 0-1: How mountainous the terrain should be
         double riverFactor = 0.0;     // 0-1: How river-like the terrain should be
-        double heightAddition = 0.0;  // Actual height to add (blended from mountains/hills/rivers)
+
+        // NEW: Separate base height constants from terrain variation
+        double baseHeightOffset = 0.0;      // Base elevation adjustment (e.g., rivers = -8)
+        double terrainVariationScale = 0.0; // Scale factor for additional noise-based variation
+        double mountainBaseHeight = 0.0;    // Base height for mountain-specific noise (blended)
     }
 
     /**
@@ -640,7 +665,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                     result.hillFactor += sample.hillFactor * weight;
                     result.mountainFactor += sample.mountainFactor * weight;
                     result.riverFactor += sample.riverFactor * weight;
-                    result.heightAddition += sample.heightAddition * weight;
+                    result.baseHeightOffset += sample.baseHeightOffset * weight;
+                    result.terrainVariationScale += sample.terrainVariationScale * weight;
+                    result.mountainBaseHeight += sample.mountainBaseHeight * weight;
 
                     totalWeight += weight;
                 }
@@ -653,7 +680,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             result.hillFactor /= totalWeight;
             result.mountainFactor /= totalWeight;
             result.riverFactor /= totalWeight;
-            result.heightAddition /= totalWeight;
+            result.baseHeightOffset /= totalWeight;
+            result.terrainVariationScale /= totalWeight;
+            result.mountainBaseHeight /= totalWeight;
         } else {
             // Fallback: use current position
             result = getBiomeModifiersAt(worldX, worldZ);
@@ -665,6 +694,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     /**
      * Get biome modifiers at a specific position without interpolation.
      * This is the base function that classifies a single biome's properties.
+     *
+     * CRITICAL FIX: This now returns MULTIPLIERS and CONSTANTS only, NOT position-specific noise!
+     * The actual terrain variation noise is generated at the query position in getTerrainHeightAtBiome().
      */
     private BiomeModifiers getBiomeModifiersAt(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
@@ -672,40 +704,55 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         LOTRBiome biome = getBiomeAt(worldX, worldZ);
         if (biome == null) {
             result.flatFactor = 1.0;
+            result.terrainVariationScale = 1.0; // Default gentle variation
             return result;
         }
 
         // Direct classification based on biome type
         if (biome.isRiver()) {
             result.riverFactor = 1.0;
-            result.heightAddition = -8.0;
+            result.baseHeightOffset = -8.0; // Rivers are 8 blocks below sea level
+            result.terrainVariationScale = 0.2; // Very gentle variation for rivers
         } else if (biome.isMountain()) {
             result.mountainFactor = 1.0;
+
+            // Mountain scale determines the base height for mountain-specific noise
             double mountainScale = switch (biome) {
                 case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0;
                 case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0;
                 case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0;
                 default -> 40.0;
             };
-            result.heightAddition = generateMountainHeightAtPosition(worldX, worldZ, mountainScale);
+
+            result.mountainBaseHeight = mountainScale; // Store for later noise generation
+            result.baseHeightOffset = 0.0; // Mountains don't need a base offset (noise handles it)
+            result.terrainVariationScale = 1.5; // Strong variation for dramatic peaks
         } else if (biome.isHilly()) {
             result.hillFactor = 1.0;
-            result.heightAddition = generateHillsAtPosition(worldX, worldZ);
+            result.baseHeightOffset = 0.0; // Hills don't need base offset
+            result.terrainVariationScale = 1.0; // Moderate variation for rolling hills
         } else if (isFlatBiome(biome)) {
             result.flatFactor = 1.0;
+            result.baseHeightOffset = 0.0;
+            result.terrainVariationScale = 0.3; // Minimal variation for flat biomes
         } else {
+            // Default/mixed biomes
             result.hillFactor = 0.5;
             result.flatFactor = 0.5;
+            result.terrainVariationScale = 0.7; // Gentle-moderate variation
         }
 
         return result;
     }
 
     /**
-     * Generate mountain height at a specific position using noise.
-     * This should ONLY be called with the target position, not sample positions!
+     * Generate mountain variation noise at the QUERY position.
+     * Returns a normalized value (0-1) that will be multiplied by the blended mountainBaseHeight.
+     *
+     * CRITICAL: This is called ONCE per query position, NOT per sample position!
+     * This ensures the same terrain features flow smoothly across biome boundaries.
      */
-    private double generateMountainHeightAtPosition(int worldX, int worldZ, double baseHeight) {
+    private double generateMountainVariationNoise(int worldX, int worldZ) {
         // Use multiple noise scales for realistic jagged mountains
         double mountainScale1 = 1.0 / 400.0; // Large mountain features
         double mountainScale2 = 1.0 / 150.0; // Medium peaks
@@ -722,27 +769,26 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double normalizedNoise = (combinedNoise + 1.0) / 2.0;
 
         // Mountains use squared noise for dramatic peaks
-        return normalizedNoise * normalizedNoise * baseHeight;
+        return normalizedNoise * normalizedNoise;
     }
 
     /**
-     * Generate hill height at a specific position using noise.
-     * This should ONLY be called with the target position, not sample positions!
+     * Generate hill variation noise at the QUERY position.
+     * Returns the height variation for rolling hills.
+     *
+     * CRITICAL: This is called ONCE per query position, NOT per sample position!
+     * This ensures the same terrain features flow smoothly across biome boundaries.
      */
-    private double generateHillsAtPosition(int worldX, int worldZ) {
+    private double generateHillVariationNoise(int worldX, int worldZ) {
         double hillScale = 1.0 / 250.0;
         double hillNoise = this.terrainNoise.getValue(worldX * hillScale, worldZ * hillScale, false);
 
         // Convert to 0-1 range and apply gentle curve
         double normalized = (hillNoise + 1.0) / 2.0;
 
-        // Use sine wave for smooth rolling hills
+        // Use sine wave for smooth rolling hills (returns 0-25 blocks)
         return Math.sin(normalized * Math.PI) * 25.0;
     }
-
-    // Old generateMountains() and generateHills() methods removed
-    // They were calculating noise at sample positions instead of target positions
-    // New versions: generateMountainHeightAtPosition() and generateHillsAtPosition()
 
     /**
      * Check if a biome should be flat (plains, grasslands, deserts, meadows)
