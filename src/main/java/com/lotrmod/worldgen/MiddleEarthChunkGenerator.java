@@ -426,9 +426,12 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // =====================================
         // STEP 1.6: Generate terrain variation noise AT THE QUERY POSITION
         // =====================================
-        // CRITICAL FIX: Generate ALL noise at worldX, worldZ (the query position)
+        // ⚠️ CRITICAL FIX: Generate ALL noise at worldX, worldZ (the query position)
         // NOT at the sample positions! This ensures the same underlying terrain
         // features flow smoothly across biome boundaries.
+        //
+        // DO NOT CHANGE: These methods MUST be called with worldX, worldZ (query position)
+        // Calling them with sample positions will recreate the terracing bug!
 
         // Generate mountain-specific terrain variation (at query position)
         double mountainVariation = 0.0;
@@ -621,13 +624,29 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * Get biome modifiers with bilinear interpolation for perfectly smooth transitions.
      * Uses 4-point sampling with linear interpolation in both X and Z directions.
      * This guarantees no grid-aligned terracing artifacts.
+     *
+     * ⚠️ CRITICAL: DO NOT CHANGE THIS INTERPOLATION METHOD! ⚠️
+     * This bilinear interpolation system is the ONLY correct way to eliminate terracing.
+     * Distance-weighted blending WILL create grid-aligned artifacts - do not revert!
+     *
+     * How this works:
+     * 1. Find the 4 corners of the grid cell containing the query position
+     * 2. Sample biome properties at each corner
+     * 3. Interpolate linearly along X between top/bottom pairs
+     * 4. Interpolate linearly along Z between the results
+     * 5. Apply smoothstep to interpolation factors for S-curve smoothness
+     *
+     * This ensures PERFECT continuity across grid cell boundaries with no visible seams.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
         // BILINEAR INTERPOLATION: Sample from 4 corner grid points and interpolate smoothly
         // This is the mathematically correct way to eliminate ALL grid-aligned artifacts
 
-        // Grid spacing - using smaller grid for finer control
-        final int GRID_SIZE = 32;  // Sample every 32 blocks for smoother transitions
+        // ⚠️ GRID SIZE TUNING: Controls the frequency of biome property sampling
+        // - Smaller values (4-8): Capture fine biome boundaries within regions, higher performance cost
+        // - Larger values (32-64): Miss fine biome details, create sharp transitions at biome boundaries
+        // - CURRENT VALUE: 8 blocks - captures intra-region biome transitions accurately
+        final int GRID_SIZE = 8;  // Sample every 8 blocks for smooth biome blending
 
         // Find the grid cell containing this position
         // x0, z0 = lower-left corner of the grid cell
@@ -642,6 +661,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         // Apply smoothstep to interpolation factors for extra smoothness
         // smoothstep(t) = 3t² - 2t³ creates S-curve instead of linear
+        // ⚠️ DO NOT REMOVE: This prevents visible linear interpolation artifacts
         fx = fx * fx * (3.0 - 2.0 * fx);
         fz = fz * fz * (3.0 - 2.0 * fz);
 
@@ -653,6 +673,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
 
         // Bilinear interpolation formula for each field:
         // result = m00*(1-fx)*(1-fz) + m10*fx*(1-fz) + m01*(1-fx)*fz + m11*fx*fz
+        // ⚠️ DO NOT CHANGE: All fields MUST use bilinear interpolation
         BiomeModifiers result = new BiomeModifiers();
 
         result.flatFactor = bilinearInterp(m00.flatFactor, m10.flatFactor, m01.flatFactor, m11.flatFactor, fx, fz);
@@ -669,6 +690,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     /**
      * Bilinear interpolation helper function.
      * Interpolates a value from 4 corners using fractional positions.
+     *
+     * ⚠️ DO NOT MODIFY: This is the standard bilinear interpolation formula.
+     * Changing this will break smooth terrain transitions.
      *
      * @param v00 Value at corner (0,0) - lower-left
      * @param v10 Value at corner (1,0) - lower-right
