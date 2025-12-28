@@ -593,45 +593,47 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Get biome modifiers with distance-weighted sampling for smooth, gradual biome transitions.
-     * Uses 9-point sampling with distance-based weights to eliminate grid artifacts.
+     * Get biome modifiers with continuous distance-weighted sampling for perfectly smooth transitions.
+     * Samples from a fixed world grid but calculates unique weights for every block position.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
-        // DISTANCE-WEIGHTED SAMPLING: Sample biomes in a 3×3 grid pattern
-        // This creates smooth, gradual transitions without visible grid lines
+        // CONTINUOUS BLENDING: Sample from fixed grid points, but each block gets unique weights
+        // This eliminates terracing by ensuring every position has different blend values
 
-        // Blend radius: defines how gradual the transitions are
-        // Larger values = smoother, more gradual transitions
-        final int BLEND_RADIUS = 80;  // 80-block radius for very gradual transitions
-        final int SAMPLE_STEP = 48;    // 48-block spacing (not aligned with 16-block chunks)
+        // Grid spacing for sample points (fixed positions in world space)
+        final int GRID_SIZE = 64;  // Sample every 64 blocks (not chunk-aligned)
+        final double BLEND_RADIUS = 128.0;  // Blend over 128-block radius for gradual transitions
 
-        // Calculate grid-aligned position for this location
-        int centerX = (worldX / SAMPLE_STEP) * SAMPLE_STEP;
-        int centerZ = (worldZ / SAMPLE_STEP) * SAMPLE_STEP;
+        // Find the grid cell containing this position
+        // These are SAMPLE positions (fixed grid), NOT the query position
+        int gridX = Math.floorDiv(worldX, GRID_SIZE) * GRID_SIZE;
+        int gridZ = Math.floorDiv(worldZ, GRID_SIZE) * GRID_SIZE;
 
-        // Sample in a 3×3 grid around the target position
+        // Sample in a 3×3 grid of fixed world positions
         BiomeModifiers result = new BiomeModifiers();
         double totalWeight = 0.0;
 
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                int sampleX = centerX + (dx * SAMPLE_STEP);
-                int sampleZ = centerZ + (dz * SAMPLE_STEP);
+                // Sample position (fixed grid point in world space)
+                int sampleX = gridX + (dx * GRID_SIZE);
+                int sampleZ = gridZ + (dz * GRID_SIZE);
 
-                // Calculate distance from target position to sample point
+                // Calculate distance from ACTUAL worldX/worldZ to this sample point
+                // This is the key: we use the real position, not grid-snapped
                 double distX = worldX - sampleX;
                 double distZ = worldZ - sampleZ;
                 double distance = Math.sqrt(distX * distX + distZ * distZ);
 
-                // Calculate weight using smooth falloff function
-                // Weight decreases with distance, creating smooth blending
-                double weight = Math.max(0.0, 1.0 - (distance / BLEND_RADIUS));
+                // Weight decreases with distance (inverse distance weighting)
+                // Using 1/(1+d²) for smooth continuous falloff
+                double weight = 1.0 / (1.0 + (distance * distance) / (BLEND_RADIUS * BLEND_RADIUS));
 
-                // Apply smoothstep for even smoother transitions
+                // Additional smoothstep for extra smoothness
                 // smoothstep(t) = 3t² - 2t³
                 weight = weight * weight * (3.0 - 2.0 * weight);
 
-                if (weight > 0.0) {
+                if (weight > 0.001) {  // Small threshold to avoid unnecessary samples
                     BiomeModifiers sample = getBiomeModifiersAt(sampleX, sampleZ);
 
                     result.flatFactor += sample.flatFactor * weight;
