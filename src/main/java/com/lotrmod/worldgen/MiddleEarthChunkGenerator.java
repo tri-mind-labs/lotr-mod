@@ -598,15 +598,18 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      *
      * CRITICAL FIX: Only sample BIOME TYPES, not position-dependent noise!
      * Then apply the blended factors to noise calculated at the TARGET position.
+     *
+     * CRITICAL: Use 12-block sampling to avoid chunk alignment (16×16 chunks)!
+     * 256-block radius for very gradual region transitions.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
 
-        // CRITICAL: Use a LARGE blend radius for smooth transitions between dramatically different biomes
-        // Mountains can be 100+ blocks tall, plains are ~65 blocks, so we need a wide transition zone
-        final int BLEND_RADIUS = 128;   // Even wider radius for very gradual transitions
-        final int SAMPLE_STEP = 16;      // Coarse sampling for performance
-        final int HALF_SAMPLES = 4;      // 9x9 grid (81 samples total)
+        // CRITICAL: HUGE blend radius for smooth region/biome transitions
+        // Region boundaries can be sharp, so we need a VERY wide transition zone
+        final int BLEND_RADIUS = 256;   // Massive radius for gradual transitions across regions
+        final int SAMPLE_STEP = 12;     // 12 blocks - NOT aligned with 16-block chunks!
+        final int HALF_SAMPLES = 10;    // 21×21 grid (441 samples total) - comprehensive coverage
 
         double totalWeight = 0.0;
         double totalFlatWeight = 0.0;
@@ -615,7 +618,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         double totalMountainHeightScale = 0.0; // Track weighted average mountain height scale
         double totalRiverWeight = 0.0;
 
-        // Sample in a 9x9 grid: (-64, -48, -32, -16, 0, 16, 32, 48, 64) × same
+        // Sample in a 21×21 grid with 12-block spacing
+        // Range: -120 to +120 blocks in each direction
+        // Samples at: -120, -108, -96, -84, -72, -60, -48, -36, -24, -12, 0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120
         for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
             for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
                 int sampleX = worldX + dx;
@@ -629,8 +634,11 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
                     continue;
                 }
 
-                // Linear falloff weight (NOT squared - we want more influence from distant samples)
-                double weight = 1.0 - (distance / BLEND_RADIUS);
+                // Smooth cubic falloff for even gentler blending at edges
+                // weight = (1 - (d/R))^3 gives very gradual transitions
+                double normalizedDistance = distance / BLEND_RADIUS;
+                double weight = 1.0 - normalizedDistance;
+                weight = weight * weight * weight; // Cubic for smooth falloff
 
                 // Get biome at this sample position
                 LOTRBiome biome = getBiomeAt(sampleX, sampleZ);
