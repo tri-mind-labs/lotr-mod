@@ -645,8 +645,8 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // ⚠️ GRID SIZE TUNING: Controls the frequency of biome property sampling
         // - Smaller values (4-8): Capture fine biome boundaries within regions, higher performance cost
         // - Larger values (32-64): Miss fine biome details, create sharp transitions at biome boundaries
-        // - CURRENT VALUE: 8 blocks - captures intra-region biome transitions accurately
-        final int GRID_SIZE = 8;  // Sample every 8 blocks for smooth biome blending
+        // - CURRENT VALUE: 32 blocks - CONFIRMED WORKING for regional blending
+        final int GRID_SIZE = 32;  // Sample every 32 blocks for smooth regional blending
 
         // Find the grid cell containing this position
         // x0, z0 = lower-left corner of the grid cell
