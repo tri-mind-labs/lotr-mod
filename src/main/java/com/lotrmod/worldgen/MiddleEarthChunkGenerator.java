@@ -593,10 +593,73 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Get biome modifiers - simplified version without heavy blending sampling.
-     * Just uses the current biome at this position.
+     * Get biome modifiers with bilinear interpolation for smooth biome transitions.
+     * Uses the same interpolation technique as landmask to prevent vertical cliffs at biome boundaries.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
+        // BILINEAR INTERPOLATION: Sample biomes at 4 surrounding positions
+        // This creates smooth transitions between different terrain types
+
+        // Sample distance: how far apart to place the 4 sample points
+        // 12 blocks provides good blending without excessive sampling
+        final int SAMPLE_DISTANCE = 12;
+
+        // Calculate floating-point position for sub-block precision
+        double exactX = worldX / (double) SAMPLE_DISTANCE;
+        double exactZ = worldZ / (double) SAMPLE_DISTANCE;
+
+        // Get the 4 surrounding sample coordinates
+        int x0 = ((int) Math.floor(exactX)) * SAMPLE_DISTANCE;
+        int z0 = ((int) Math.floor(exactZ)) * SAMPLE_DISTANCE;
+        int x1 = x0 + SAMPLE_DISTANCE;
+        int z1 = z0 + SAMPLE_DISTANCE;
+
+        // Get fractional parts for interpolation weights (0.0 to 1.0)
+        double fx = (exactX - Math.floor(exactX));
+        double fz = (exactZ - Math.floor(exactZ));
+
+        // Sample biome modifiers at 4 corners
+        BiomeModifiers m00 = getBiomeModifiersAt(x0, z0); // top-left
+        BiomeModifiers m10 = getBiomeModifiersAt(x1, z0); // top-right
+        BiomeModifiers m01 = getBiomeModifiersAt(x0, z1); // bottom-left
+        BiomeModifiers m11 = getBiomeModifiersAt(x1, z1); // bottom-right
+
+        // Bilinear interpolation for each modifier field
+        BiomeModifiers result = new BiomeModifiers();
+
+        // Interpolate flatFactor
+        double flat0 = m00.flatFactor * (1.0 - fx) + m10.flatFactor * fx;
+        double flat1 = m01.flatFactor * (1.0 - fx) + m11.flatFactor * fx;
+        result.flatFactor = flat0 * (1.0 - fz) + flat1 * fz;
+
+        // Interpolate hillFactor
+        double hill0 = m00.hillFactor * (1.0 - fx) + m10.hillFactor * fx;
+        double hill1 = m01.hillFactor * (1.0 - fx) + m11.hillFactor * fx;
+        result.hillFactor = hill0 * (1.0 - fz) + hill1 * fz;
+
+        // Interpolate mountainFactor
+        double mountain0 = m00.mountainFactor * (1.0 - fx) + m10.mountainFactor * fx;
+        double mountain1 = m01.mountainFactor * (1.0 - fx) + m11.mountainFactor * fx;
+        result.mountainFactor = mountain0 * (1.0 - fz) + mountain1 * fz;
+
+        // Interpolate riverFactor
+        double river0 = m00.riverFactor * (1.0 - fx) + m10.riverFactor * fx;
+        double river1 = m01.riverFactor * (1.0 - fx) + m11.riverFactor * fx;
+        result.riverFactor = river0 * (1.0 - fz) + river1 * fz;
+
+        // Interpolate heightAddition
+        double height0 = m00.heightAddition * (1.0 - fx) + m10.heightAddition * fx;
+        double height1 = m01.heightAddition * (1.0 - fx) + m11.heightAddition * fx;
+        result.heightAddition = height0 * (1.0 - fz) + height1 * fz;
+
+        return result;
+    }
+
+    /**
+     * Get biome modifiers at a specific position without interpolation.
+     * This is the base function that classifies a single biome's properties.
+     */
+    private BiomeModifiers getBiomeModifiersAt(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
 
         LOTRBiome biome = getBiomeAt(worldX, worldZ);
@@ -605,7 +668,7 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             return result;
         }
 
-        // Simple direct classification - no sampling
+        // Direct classification based on biome type
         if (biome.isRiver()) {
             result.riverFactor = 1.0;
             result.heightAddition = -8.0;
