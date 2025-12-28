@@ -593,113 +593,39 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Calculate blended biome modifiers by sampling nearby biomes.
-     * This creates smooth transitions between different terrain types.
-     *
-     * CRITICAL FIX: Only sample BIOME TYPES, not position-dependent noise!
-     * Then apply the blended factors to noise calculated at the TARGET position.
-     *
-     * CRITICAL: Use 12-block sampling to avoid chunk alignment (16×16 chunks)!
-     * 256-block radius for very gradual region transitions.
+     * Get biome modifiers - simplified version without heavy blending sampling.
+     * Just uses the current biome at this position.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
 
-        // CRITICAL: HUGE blend radius for smooth region/biome transitions
-        // Region boundaries can be sharp, so we need a VERY wide transition zone
-        final int BLEND_RADIUS = 256;   // Massive radius for gradual transitions across regions
-        final int SAMPLE_STEP = 12;     // 12 blocks - NOT aligned with 16-block chunks!
-        final int HALF_SAMPLES = 10;    // 21×21 grid (441 samples total) - comprehensive coverage
-
-        double totalWeight = 0.0;
-        double totalFlatWeight = 0.0;
-        double totalHillWeight = 0.0;
-        double totalMountainWeight = 0.0;
-        double totalMountainHeightScale = 0.0; // Track weighted average mountain height scale
-        double totalRiverWeight = 0.0;
-
-        // Sample in a 21×21 grid with 12-block spacing
-        // Range: -120 to +120 blocks in each direction
-        // Samples at: -120, -108, -96, -84, -72, -60, -48, -36, -24, -12, 0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120
-        for (int dx = -HALF_SAMPLES * SAMPLE_STEP; dx <= HALF_SAMPLES * SAMPLE_STEP; dx += SAMPLE_STEP) {
-            for (int dz = -HALF_SAMPLES * SAMPLE_STEP; dz <= HALF_SAMPLES * SAMPLE_STEP; dz += SAMPLE_STEP) {
-                int sampleX = worldX + dx;
-                int sampleZ = worldZ + dz;
-
-                // Calculate weight based on distance (closer samples have more influence)
-                double distance = Math.sqrt(dx * dx + dz * dz);
-
-                // Skip samples outside the blend radius
-                if (distance > BLEND_RADIUS) {
-                    continue;
-                }
-
-                // Smooth cubic falloff for even gentler blending at edges
-                // weight = (1 - (d/R))^3 gives very gradual transitions
-                double normalizedDistance = distance / BLEND_RADIUS;
-                double weight = 1.0 - normalizedDistance;
-                weight = weight * weight * weight; // Cubic for smooth falloff
-
-                // Get biome at this sample position
-                LOTRBiome biome = getBiomeAt(sampleX, sampleZ);
-                if (biome == null) {
-                    continue;
-                }
-
-                // Classify biome TYPE only - don't calculate position-dependent noise here!
-                if (biome.isRiver()) {
-                    totalRiverWeight += weight;
-                } else if (biome.isMountain()) {
-                    totalMountainWeight += weight;
-                    // Store the mountain TYPE scale, not the actual height
-                    double mountainScale = switch (biome) {
-                        case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0; // Huge
-                        case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0; // Large
-                        case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0; // Medium
-                        default -> 40.0; // Small
-                    };
-                    totalMountainHeightScale += weight * mountainScale;
-                } else if (biome.isHilly()) {
-                    totalHillWeight += weight;
-                } else if (isFlatBiome(biome)) {
-                    totalFlatWeight += weight;
-                } else {
-                    // Default: treat as slightly hilly
-                    totalHillWeight += weight * 0.5;
-                    totalFlatWeight += weight * 0.5;
-                }
-
-                totalWeight += weight;
-            }
+        LOTRBiome biome = getBiomeAt(worldX, worldZ);
+        if (biome == null) {
+            result.flatFactor = 1.0;
+            return result;
         }
 
-        // Normalize the factors
-        if (totalWeight > 0) {
-            result.flatFactor = totalFlatWeight / totalWeight;
-            result.hillFactor = totalHillWeight / totalWeight;
-            result.mountainFactor = totalMountainWeight / totalWeight;
-            result.riverFactor = totalRiverWeight / totalWeight;
-
-            // NOW calculate the height modifiers at the TARGET position (worldX, worldZ)
-            // using the blended factors
-
-            // River depth
-            if (result.riverFactor > 0.01) {
-                result.heightAddition += result.riverFactor * -8.0; // Rivers are 8 blocks below sea level
-            }
-
-            // Mountain height (calculate noise at TARGET position, scale by blend factor)
-            if (result.mountainFactor > 0.01) {
-                double avgMountainScale = totalMountainHeightScale / totalWeight;
-                double mountainHeight = generateMountainHeightAtPosition(worldX, worldZ, avgMountainScale);
-                result.heightAddition += result.mountainFactor * mountainHeight;
-            }
-
-            // Hill height (calculate noise at TARGET position, scale by blend factor)
-            if (result.hillFactor > 0.01) {
-                double hillHeight = generateHillsAtPosition(worldX, worldZ);
-                result.heightAddition += result.hillFactor * hillHeight;
-            }
+        // Simple direct classification - no sampling
+        if (biome.isRiver()) {
+            result.riverFactor = 1.0;
+            result.heightAddition = -8.0;
+        } else if (biome.isMountain()) {
+            result.mountainFactor = 1.0;
+            double mountainScale = switch (biome) {
+                case BLUE_MOUNTAINS, MISTY_MOUNTAINS, MOUNTAINS_OF_SHADOW -> 100.0;
+                case WHITE_MOUNTAINS, GREY_MOUNTAINS -> 80.0;
+                case IRON_HILLS, EREBOR, FORODWAITH_ICY_MOUNTAINS -> 60.0;
+                default -> 40.0;
+            };
+            result.heightAddition = generateMountainHeightAtPosition(worldX, worldZ, mountainScale);
+        } else if (biome.isHilly()) {
+            result.hillFactor = 1.0;
+            result.heightAddition = generateHillsAtPosition(worldX, worldZ);
+        } else if (isFlatBiome(biome)) {
+            result.flatFactor = 1.0;
+        } else {
+            result.hillFactor = 0.5;
+            result.flatFactor = 0.5;
         }
 
         return result;
