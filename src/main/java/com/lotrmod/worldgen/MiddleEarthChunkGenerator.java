@@ -484,9 +484,31 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // we blend between natural terrain and ocean floor based on brightness.
         // This creates smooth, gradual slopes from land down to ocean depth.
         // ENHANCED: Now handles tall mountains at coastlines by using extended transition zones.
+        // COASTAL PERTURBATION: Uses noise-perturbed brightness to make ocean transitions organic.
 
         if (LandmaskLoader.isLoaded()) {
-            double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+            // ⚠️ Apply same coastal perturbation for consistent organic coastlines
+            // This must match the perturbation in getLandmaskHeightBias()
+            final double COASTAL_NOISE_SCALE = 1.0 / 80.0;
+            final double COASTAL_NOISE_STRENGTH = 12.0;
+
+            double offsetX = this.coastlineNoise.getValue(
+                worldX * COASTAL_NOISE_SCALE,
+                worldZ * COASTAL_NOISE_SCALE,
+                false
+            ) * COASTAL_NOISE_STRENGTH;
+
+            double offsetZ = this.coastlineNoise.getValue(
+                (worldX + 10000) * COASTAL_NOISE_SCALE,
+                (worldZ + 10000) * COASTAL_NOISE_SCALE,
+                false
+            ) * COASTAL_NOISE_STRENGTH;
+
+            // Sample brightness at perturbed position for organic coastlines
+            double brightness = LandmaskLoader.getInterpolatedBrightness(
+                worldX + (int)offsetX,
+                worldZ + (int)offsetZ
+            );
 
             // Define the transition zone brightness thresholds
             // LAND_THRESHOLD: Below this, terrain is completely natural (land)
@@ -553,6 +575,9 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
      * Instead of sampling at pixel centers with integer division, we sample with
      * floating-point precision and interpolate between 4 surrounding pixels.
      *
+     * COASTAL NOISE PERTURBATION: Adds noise-based offsets to the sampling position
+     * to make coastlines and region borders more organic and less pixel-aligned.
+     *
      * @param worldX The X coordinate in world space
      * @param worldZ The Z coordinate in world space
      * @return Height bias in blocks (positive = push up toward land, negative = push down toward ocean)
@@ -562,9 +587,31 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
             return 0.0; // No landmask = no bias, pure noise terrain
         }
 
-        // Get INTERPOLATED brightness from landmask (0 = black/land, 255 = white/ocean)
-        // This is the critical fix - bilinear interpolation eliminates chunk boundaries
-        double brightness = LandmaskLoader.getInterpolatedBrightness(worldX, worldZ);
+        // ⚠️ COASTAL PERTURBATION: Add noise-based offset to make coastlines organic
+        // This prevents coastlines from following pixel boundaries too precisely
+        // The noise "wiggles" the sampling position, creating natural irregular coastlines
+        final double COASTAL_NOISE_SCALE = 1.0 / 80.0;  // Wavelength: ~80 blocks (coastal detail)
+        final double COASTAL_NOISE_STRENGTH = 12.0;     // Offset amount: ±12 blocks
+
+        // Generate coastal perturbation noise at this position
+        double offsetX = this.coastlineNoise.getValue(
+            worldX * COASTAL_NOISE_SCALE,
+            worldZ * COASTAL_NOISE_SCALE,
+            false
+        ) * COASTAL_NOISE_STRENGTH;
+
+        double offsetZ = this.coastlineNoise.getValue(
+            (worldX + 10000) * COASTAL_NOISE_SCALE,  // Offset seed for independent Z noise
+            (worldZ + 10000) * COASTAL_NOISE_SCALE,
+            false
+        ) * COASTAL_NOISE_STRENGTH;
+
+        // Sample landmask at perturbed position instead of exact worldX, worldZ
+        // This makes coastlines follow natural curves instead of pixel boundaries
+        double brightness = LandmaskLoader.getInterpolatedBrightness(
+            worldX + (int)offsetX,
+            worldZ + (int)offsetZ
+        );
 
         // Convert brightness to height bias
         // brightness 0 (black) → +LANDMASK_HEIGHT_BIAS (push terrain up)
