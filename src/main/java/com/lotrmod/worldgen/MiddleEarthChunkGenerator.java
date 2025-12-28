@@ -3,7 +3,6 @@ package com.lotrmod.worldgen;
 import com.lotrmod.LOTRMod;
 import com.lotrmod.block.ModBlocks;
 import com.lotrmod.worldgen.biome.LOTRBiome;
-import com.lotrmod.worldgen.biome.ModBiomes;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -30,9 +29,7 @@ import net.minecraft.world.level.levelgen.*;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -55,10 +52,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     private final PerlinSimplexNoise largeScaleCoastNoise;   // Major coastal shapes
     private final PerlinSimplexNoise mediumScaleCoastNoise;  // Bays and peninsulas
     private final PerlinSimplexNoise smallScaleCoastNoise;   // Detailed coastline jaggedness
-
-    // Biome noise generators for smooth biome blending (matches MiddleEarthBiomeSource)
-    private final PerlinSimplexNoise largeBiomeNoise;  // Large-scale biome zones
-    private final PerlinSimplexNoise smallBiomeNoise;  // Small-scale variation
 
     // Sea level for the world
     private static final int SEA_LEVEL = 63;
@@ -129,11 +122,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         this.largeScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2, 3, 4));
         this.mediumScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2, 3));
         this.smallScaleCoastNoise = new PerlinSimplexNoise(coastRandom, List.of(0, 1, 2));
-
-        // Biome noise generators (MUST match MiddleEarthBiomeSource exactly for consistency)
-        RandomSource biomeRandom = RandomSource.create(54321); // Same seed as MiddleEarthBiomeSource
-        this.largeBiomeNoise = new PerlinSimplexNoise(biomeRandom, List.of(0, 1, 2, 3));
-        this.smallBiomeNoise = new PerlinSimplexNoise(biomeRandom, List.of(0, 1));
     }
 
     @Override
@@ -702,10 +690,11 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // This is the mathematically correct way to eliminate ALL grid-aligned artifacts
 
         // ⚠️ GRID SIZE TUNING: Controls the frequency of biome property sampling
-        // - Smaller values (4-8): Capture fine biome boundaries within regions, higher performance cost
-        // - Larger values (32-64): Miss fine biome details, create sharp transitions at biome boundaries
-        // - CURRENT VALUE: 32 blocks - CONFIRMED WORKING for regional blending
-        final int GRID_SIZE = 32;  // Sample every 32 blocks for smooth regional blending
+        // - Smaller values (4-8): Capture fine biome boundaries, smoother transitions, higher performance cost
+        // - Larger values (32-64): Miss fine biome details, create sharp cliffs at biome boundaries
+        // - REDUCED FROM 32 TO 8: Eliminates cliffs at biome boundaries by sampling more frequently
+        // - With 8-block sampling, neighboring grid points usually select the same biome, creating smooth interpolation
+        final int GRID_SIZE = 8;  // Sample every 8 blocks for smooth biome-level transitions
 
         // Find the grid cell containing this position
         // x0, z0 = lower-left corner of the grid cell
@@ -771,172 +760,19 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Calculate biome noise value at a position (0.0 to 1.0).
-     * MUST match the calculation in MiddleEarthBiomeSource.selectBiomeInRegion() exactly.
-     */
-    private double getBiomeNoiseValue(int worldX, int worldZ) {
-        // Large scale: Major biome zones (low frequency, changes slowly)
-        double largeScale = 1.0 / 800.0; // Changes every ~800 blocks
-        double largeNoise = this.largeBiomeNoise.getValue(
-            worldX * largeScale,
-            worldZ * largeScale,
-            false
-        );
-
-        // Small scale: Local variation (high frequency, creates boundaries)
-        double smallScale = 1.0 / 200.0; // Changes every ~200 blocks
-        double smallNoise = this.smallBiomeNoise.getValue(
-            worldX * smallScale,
-            worldZ * smallScale,
-            false
-        );
-
-        // Combine noise layers: 70% large scale, 30% small scale
-        double combinedNoise = largeNoise * 0.7 + smallNoise * 0.3;
-
-        // Convert from (-1, 1) range to (0, 1) range
-        double normalizedNoise = (combinedNoise + 1.0) / 2.0;
-
-        // Clamp to ensure we stay in valid range
-        return Math.max(0.0, Math.min(1.0, normalizedNoise));
-    }
-
-    /**
-     * Calculate smooth weights for all biomes in a region based on continuous noise.
-     * Instead of discrete selection, this creates smooth transitions between biomes.
+     * Get biome modifiers at a specific position without interpolation.
+     * This is the base function that classifies a single biome's properties.
      *
-     * The key insight: If noise = 0.5 in a region with [Plains(40%), Hills(40%), Forest(20%)]:
-     * - Discrete (WRONG): noise * 100 = 50 → falls in "Hills" range → return Hills only
-     * - Continuous (CORRECT): Calculate distance-based weights for smooth blending
-     *
-     * @return Map of biome to weight (weights sum to 1.0)
-     */
-    private Map<LOTRBiome, Double> getSmoothBiomeWeights(Region region, double noiseValue) {
-        List<ModBiomes.WeightedBiomeEntry> biomes = ModBiomes.getBiomesForRegion(region);
-        Map<LOTRBiome, Double> weights = new HashMap<>();
-
-        if (biomes.isEmpty()) {
-            return weights;
-        }
-
-        // Calculate total weight
-        int totalWeight = biomes.stream().mapToInt(ModBiomes.WeightedBiomeEntry::weight).sum();
-        if (totalWeight == 0) {
-            return weights;
-        }
-
-        // Calculate cumulative ranges for each biome
-        // Example: [Plains:40, Hills:40, Forest:20]
-        // Ranges: Plains[0-40], Hills[40-80], Forest[80-100]
-        double noisePosition = noiseValue * totalWeight; // 0 to totalWeight
-
-        // For smooth blending, we calculate weights based on distance to biome ranges
-        // Using a smooth transition zone around boundaries
-        final double TRANSITION_WIDTH = totalWeight * 0.15; // 15% of total weight as transition zone
-
-        int cumulativeWeight = 0;
-        for (ModBiomes.WeightedBiomeEntry entry : biomes) {
-            int biomeWeight = entry.weight();
-            double rangeStart = cumulativeWeight;
-            double rangeEnd = cumulativeWeight + biomeWeight;
-            double rangeMid = (rangeStart + rangeEnd) / 2.0;
-
-            // Calculate weight based on distance from range center
-            double distanceFromCenter = Math.abs(noisePosition - rangeMid);
-            double maxDistance = (biomeWeight / 2.0) + TRANSITION_WIDTH;
-
-            // Smooth falloff using smoothstep
-            double weight = 0.0;
-            if (distanceFromCenter < maxDistance) {
-                double t = 1.0 - (distanceFromCenter / maxDistance);
-                // Smoothstep for smooth blending
-                weight = t * t * (3.0 - 2.0 * t);
-            }
-
-            if (weight > 0.001) { // Only include biomes with meaningful contribution
-                weights.put(entry.biome(), weight);
-            }
-
-            cumulativeWeight += biomeWeight;
-        }
-
-        // Normalize weights to sum to 1.0
-        double totalCalculatedWeight = weights.values().stream().mapToDouble(Double::doubleValue).sum();
-        if (totalCalculatedWeight > 0.0) {
-            final double normalizationFactor = 1.0 / totalCalculatedWeight;
-            weights.replaceAll((biome, weight) -> weight * normalizationFactor);
-        }
-
-        return weights;
-    }
-
-    /**
-     * Get biome modifiers at a specific position using SMOOTH CONTINUOUS BLENDING.
-     * This is the CRITICAL FIX for eliminating abrupt cliffs at biome boundaries.
-     *
-     * OLD (WRONG): Select ONE discrete biome → get its modifiers → interpolate heights
-     * NEW (CORRECT): Blend ALL biome modifiers continuously → smooth terrain transitions
-     *
-     * Instead of:
-     *   - Plains @ noise 0.39 → height offset = 0
-     *   - Hills @ noise 0.41 → height offset = 25
-     *   - Result: 25-block cliff at noise boundary
-     *
-     * We now do:
-     *   - noise 0.39: Plains 90% + Hills 10% → offset = 0*0.9 + 25*0.1 = 2.5
-     *   - noise 0.41: Plains 70% + Hills 30% → offset = 0*0.7 + 25*0.3 = 7.5
-     *   - Result: Smooth 5-block slope over the transition
+     * CRITICAL FIX: This now returns MULTIPLIERS and CONSTANTS only, NOT position-specific noise!
+     * The actual terrain variation noise is generated at the query position in getTerrainHeightAtBiome().
      */
     private BiomeModifiers getBiomeModifiersAt(int worldX, int worldZ) {
         BiomeModifiers result = new BiomeModifiers();
 
-        // Get the region at this position
-        Region region = getRegion(worldX, worldZ);
-
-        // Calculate continuous biome noise value (0.0 to 1.0)
-        double noiseValue = getBiomeNoiseValue(worldX, worldZ);
-
-        // Get smooth weights for all biomes in this region
-        Map<LOTRBiome, Double> biomeWeights = getSmoothBiomeWeights(region, noiseValue);
-
-        // If no biomes found, return default modifiers
-        if (biomeWeights.isEmpty()) {
-            result.flatFactor = 1.0;
-            result.terrainVariationScale = 1.0;
-            return result;
-        }
-
-        // Blend modifiers from ALL contributing biomes
-        for (Map.Entry<LOTRBiome, Double> entry : biomeWeights.entrySet()) {
-            LOTRBiome biome = entry.getKey();
-            double weight = entry.getValue();
-
-            // Get modifiers for this individual biome
-            BiomeModifiers biomeModifiers = getSingleBiomeModifiers(biome);
-
-            // Accumulate weighted modifiers
-            result.flatFactor += biomeModifiers.flatFactor * weight;
-            result.hillFactor += biomeModifiers.hillFactor * weight;
-            result.mountainFactor += biomeModifiers.mountainFactor * weight;
-            result.riverFactor += biomeModifiers.riverFactor * weight;
-            result.baseHeightOffset += biomeModifiers.baseHeightOffset * weight;
-            result.terrainVariationScale += biomeModifiers.terrainVariationScale * weight;
-            result.mountainBaseHeight += biomeModifiers.mountainBaseHeight * weight;
-        }
-
-        return result;
-    }
-
-    /**
-     * Get modifiers for a single biome without blending.
-     * This is used by getBiomeModifiersAt() to calculate individual biome contributions.
-     */
-    private BiomeModifiers getSingleBiomeModifiers(LOTRBiome biome) {
-        BiomeModifiers result = new BiomeModifiers();
-
+        LOTRBiome biome = getBiomeAt(worldX, worldZ);
         if (biome == null) {
             result.flatFactor = 1.0;
-            result.terrainVariationScale = 1.0;
+            result.terrainVariationScale = 1.0; // Default gentle variation
             return result;
         }
 
@@ -975,16 +811,6 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         }
 
         return result;
-    }
-
-    /**
-     * Get the region at a world position.
-     */
-    private Region getRegion(int worldX, int worldZ) {
-        if (!RegionMapLoader.isLoaded()) {
-            return Region.ERIADOR; // Default fallback
-        }
-        return RegionMapLoader.getRegion(worldX, worldZ);
     }
 
     /**
