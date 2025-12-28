@@ -3,6 +3,7 @@ package com.lotrmod.worldgen.biome;
 import com.lotrmod.LOTRMod;
 import com.lotrmod.worldgen.Region;
 import net.minecraft.core.HolderGetter;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BiomeDefaultFeatures;
 import net.minecraft.data.worldgen.placement.VegetationPlacements;
@@ -152,37 +153,242 @@ public class ModBiomes {
         BiomeGenerationSettings.Builder generationBuilder = new BiomeGenerationSettings.Builder(null, null);
         MobSpawnSettings.Builder spawnBuilder = new MobSpawnSettings.Builder();
 
-        // Add basic vanilla features (caves, ores, etc.)
-        BiomeDefaultFeatures.addDefaultCarversAndLakes(generationBuilder);
-        BiomeDefaultFeatures.addDefaultCrystalFormations(generationBuilder);
-        BiomeDefaultFeatures.addDefaultMonsterRoom(generationBuilder);
-        BiomeDefaultFeatures.addDefaultUndergroundVariety(generationBuilder);
-        BiomeDefaultFeatures.addDefaultOres(generationBuilder);
-        BiomeDefaultFeatures.addDefaultSoftDisks(generationBuilder);
+        // ==================== IMPORTANT: VANILLA STRUCTURES DISABLED ====================
+        // Vanilla structures (villages, temples, pillager outposts, etc.) are DISABLED.
+        // This is ensured by:
+        //   1. Empty spawn_target[] in middleearth.json noise settings
+        //   2. Not calling BiomeDefaultFeatures structure methods (addVillages, addDesertTemple, etc.)
+        //   3. Custom chunk generator that doesn't place structures
+        //
+        // The features below are NOT structures - they are world generation features:
+        //   - Carvers (caves/ravines) - overridden in chunk generator
+        //   - Underground features (ores, geodes, dirt/gravel patches)
+        //   - Vegetation and grass
+        // ==================================================================================
 
-        // Add biome-specific features (will be expanded later with boulders, flowers, etc.)
+        // Add underground features (NOT structures)
+        BiomeDefaultFeatures.addDefaultCarversAndLakes(generationBuilder);  // Carvers overridden in chunk generator
+        BiomeDefaultFeatures.addDefaultCrystalFormations(generationBuilder); // Amethyst geodes
+        BiomeDefaultFeatures.addDefaultMonsterRoom(generationBuilder);       // Small dungeons with spawners
+        BiomeDefaultFeatures.addDefaultUndergroundVariety(generationBuilder); // Diorite, andesite, granite
+        BiomeDefaultFeatures.addDefaultOres(generationBuilder);              // Coal, iron, gold, diamond, etc.
+        BiomeDefaultFeatures.addDefaultSoftDisks(generationBuilder);         // Dirt, gravel, sand patches
+
+        // Add biome-specific vegetation (will be expanded with LOTR-specific features later)
         addBiomeFeatures(generationBuilder, lotrBiome);
 
-        // Add basic mob spawning
+        // Add basic mob spawning (animals, monsters)
         BiomeDefaultFeatures.commonSpawns(spawnBuilder);
 
-        // Calculate sky color from temperature
-        int skyColor = calculateSkyColor(lotrBiome.getTemperature());
+        // Configure atmospheric effects based on biome type
+        BiomeSpecialEffects.Builder effectsBuilder = createBiomeEffects(lotrBiome);
 
         return new Biome.BiomeBuilder()
                 .hasPrecipitation(lotrBiome.getDownfall() > 0.1f)
                 .temperature(lotrBiome.getTemperature())
                 .downfall(lotrBiome.getDownfall())
-                .specialEffects(new BiomeSpecialEffects.Builder()
-                        .waterColor(0x3F76E4) // Default water color
-                        .waterFogColor(0x050533)
-                        .fogColor(0xC0D8FF)
-                        .skyColor(skyColor)
-                        .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
-                        .build())
+                .specialEffects(effectsBuilder.build())
                 .mobSpawnSettings(spawnBuilder.build())
                 .generationSettings(generationBuilder.build())
                 .build();
+    }
+
+    /**
+     * Create atmospheric effects for a biome
+     */
+    private static BiomeSpecialEffects.Builder createBiomeEffects(LOTRBiome biome) {
+        BiomeSpecialEffects.Builder builder = new BiomeSpecialEffects.Builder();
+
+        // Configure colors and effects based on biome type
+        switch (biome) {
+            // ==================== MORDOR - Volcanic wasteland ====================
+            case MORDOR_VOLCANIC_WASTE -> {
+                builder.skyColor(0x6B2C2C)            // Dark reddish sky
+                       .fogColor(0x3D1A1A)            // Dark red fog
+                       .waterColor(0x2B1515)          // Dark murky water
+                       .waterFogColor(0x0A0202)       // Nearly black water fog
+                       .grassColorOverride(0x3A2618)  // Dead brownish grass
+                       .foliageColorOverride(0x3D2014) // Dead brown foliage
+                       .ambientParticle(new AmbientParticleSettings(ParticleTypes.ASH, 0.01f)) // Ash particles
+                       .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_BASALT_DELTAS_MOOD, 6000, 8, 2.0))
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_BASALT_DELTAS));
+            }
+
+            // ==================== DEAD LANDS - Lifeless wasteland ====================
+            case DEAD_LANDS_EMPTY -> {
+                builder.skyColor(0x616161)            // Grey, lifeless sky
+                       .fogColor(0x4A4A4A)            // Grey fog
+                       .waterColor(0x3C3C3C)          // Murky grey water
+                       .waterFogColor(0x1A1A1A)       // Dark grey water fog
+                       .grassColorOverride(0x4A4237)  // Dead grey-brown grass
+                       .foliageColorOverride(0x4D4640) // Dead grey-brown foliage
+                       .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD, 6000, 8, 2.0));
+            }
+
+            // ==================== MIRKWOOD - Dark, ominous forest ====================
+            case MIRKWOOD -> {
+                builder.skyColor(0x4A5A5A)            // Dark, gloomy sky
+                       .fogColor(0x2A3A3A)            // Dark foggy atmosphere
+                       .waterColor(0x1F3A2A)          // Dark murky water
+                       .waterFogColor(0x0A1A0F)       // Very dark water fog
+                       .grassColorOverride(0x3A5A3A)  // Dark green grass
+                       .foliageColorOverride(0x2A4A2A) // Dark green foliage
+                       .grassColorModifier(BiomeSpecialEffects.GrassColorModifier.DARK_FOREST)
+                       .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_WARPED_FOREST_MOOD, 6000, 8, 2.0))
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_FOREST));
+            }
+
+            // ==================== LOTHLORIEN - Ethereal golden forest ====================
+            case LOTHLORIEN -> {
+                builder.skyColor(0x87CEEB)            // Bright sky blue
+                       .fogColor(0xE8F4FA)            // Bright, ethereal fog
+                       .waterColor(0x5FB3E8)          // Clear, bright blue water
+                       .waterFogColor(0x3A7DB8)       // Clear water fog
+                       .grassColorOverride(0x9ACD32)  // Yellow-green grass
+                       .foliageColorOverride(0xFFD700) // Golden foliage
+                       .ambientParticle(new AmbientParticleSettings(ParticleTypes.WHITE_ASH, 0.003f)) // Gentle falling leaves
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
+            }
+
+            // ==================== THE SHIRE - Pleasant, idyllic countryside ====================
+            case THE_SHIRE -> {
+                builder.skyColor(0x77ADFF)            // Bright pleasant sky
+                       .fogColor(0xC0D8FF)            // Clear fog
+                       .waterColor(0x3F76E4)          // Clear blue water
+                       .waterFogColor(0x050533)       // Clear water fog
+                       .grassColorOverride(0x7EC850)  // Vibrant green grass
+                       .foliageColorOverride(0x6CBE30) // Vibrant green foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
+            }
+
+            // ==================== RIVENDELL - Magical, serene valley ====================
+            case RIVENDELL -> {
+                builder.skyColor(0x87CEEB)            // Clear sky blue
+                       .fogColor(0xD0E8FF)            // Light, magical fog
+                       .waterColor(0x4FA4E8)          // Crystal clear water
+                       .waterFogColor(0x2A6DB8)       // Clear water fog
+                       .grassColorOverride(0x8ACB58)  // Fresh green grass
+                       .foliageColorOverride(0x70B040) // Fresh green foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_CHERRY_GROVE));
+            }
+
+            // ==================== FORODWAITH - Frozen northern wastes ====================
+            case FORODWAITH_TUNDRA, FORODWAITH_ICY_MOUNTAINS, FORODWAITH_ROCKY_BARRENS -> {
+                builder.skyColor(0xB0D0E8)            // Cold, icy blue sky
+                       .fogColor(0xE0F0FF)            // White-blue fog
+                       .waterColor(0x3D57D6)          // Cold blue water
+                       .waterFogColor(0x1A2E80)       // Dark blue water fog
+                       .grassColorOverride(0x80B497)  // Frozen grass
+                       .foliageColorOverride(0x60A080) // Frozen foliage
+                       .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_CRIMSON_FOREST_MOOD, 6000, 8, 2.0))
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_FROZEN_PEAKS));
+            }
+
+            // ==================== FANGORN FOREST - Ancient, mystical forest ====================
+            case FANGORN_FOREST -> {
+                builder.skyColor(0x5A7A6A)            // Greenish sky
+                       .fogColor(0x8AB89A)            // Green-tinted fog
+                       .waterColor(0x2F5A4A)          // Deep green water
+                       .waterFogColor(0x1A3A2A)       // Dark green water fog
+                       .grassColorOverride(0x4A7A4A)  // Deep green grass
+                       .foliageColorOverride(0x3A6A3A) // Deep green foliage
+                       .grassColorModifier(BiomeSpecialEffects.GrassColorModifier.DARK_FOREST)
+                       .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_WARPED_FOREST_MOOD, 6000, 8, 2.0))
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_FOREST));
+            }
+
+            // ==================== HARAD DESERT - Hot, arid desert ====================
+            case HARAD_DESERT -> {
+                builder.skyColor(0xFAD891)            // Hot, hazy sky
+                       .fogColor(0xEDD8B0)            // Sandy fog
+                       .waterColor(0x32A598)          // Desert oasis water
+                       .waterFogColor(0x0A6B5A)       // Clear water fog
+                       .grassColorOverride(0xBFA755)  // Desert grass
+                       .foliageColorOverride(0xAEA42A) // Desert foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_DESERT));
+            }
+
+            // ==================== HARAD JUNGLE - Hot, humid jungle ====================
+            case HARAD_JUNGLE -> {
+                builder.skyColor(0x77C5FF)            // Tropical sky
+                       .fogColor(0xB5E8FF)            // Humid fog
+                       .waterColor(0x3D8E33)          // Jungle water
+                       .waterFogColor(0x1A5E1A)       // Green water fog
+                       .grassColorOverride(0x59AE30)  // Lush jungle grass
+                       .foliageColorOverride(0x30B418) // Lush jungle foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_JUNGLE));
+            }
+
+            // ==================== MOUNTAINS - Cold, rocky peaks ====================
+            case BLUE_MOUNTAINS, MISTY_MOUNTAINS, GREY_MOUNTAINS, WHITE_MOUNTAINS,
+                 MOUNTAINS_OF_SHADOW, EREBOR, IRON_HILLS -> {
+                builder.skyColor(0x8AB8E8)            // Cold mountain sky
+                       .fogColor(0xC8D8E8)            // Mountain fog
+                       .waterColor(0x3F76E4)          // Clear mountain water
+                       .waterFogColor(0x050533)       // Clear water fog
+                       .grassColorOverride(0x6FA070)  // Alpine grass
+                       .foliageColorOverride(0x5A8A60) // Alpine foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_STONY_PEAKS));
+            }
+
+            // ==================== MARSHES - Wet, murky wetlands ====================
+            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> {
+                builder.skyColor(0x6A8A9A)            // Overcast sky
+                       .fogColor(0x9AB8C8)            // Misty fog
+                       .waterColor(0x4C6559)          // Murky swamp water
+                       .waterFogColor(0x232317)       // Dark swamp fog
+                       .grassColorOverride(0x6A7039)  // Swamp grass
+                       .foliageColorOverride(0x6A7039) // Swamp foliage
+                       .grassColorModifier(BiomeSpecialEffects.GrassColorModifier.SWAMP)
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_SWAMP));
+            }
+
+            // ==================== RIVERS - Clear flowing water ====================
+            case ANDUIN_RIVER, CELDUIN_RIVER -> {
+                builder.skyColor(calculateSkyColor(0.8f))
+                       .fogColor(0xC0D8FF)            // Clear fog
+                       .waterColor(0x3D57D6)          // Clear river water
+                       .waterFogColor(0x050533)       // Clear water fog
+                       .grassColorOverride(0x7EC850)  // Riverbank grass
+                       .foliageColorOverride(0x6CBE30) // Riverbank foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_RIVER));
+            }
+
+            // ==================== GRASSLANDS - Open plains and prairies ====================
+            case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND -> {
+                builder.skyColor(0x78A7FF)            // Clear plains sky
+                       .fogColor(0xC0D8FF)            // Clear fog
+                       .waterColor(0x3F76E4)          // Clear water
+                       .waterFogColor(0x050533)       // Clear water fog
+                       .grassColorOverride(0x91BD59)  // Plains grass
+                       .foliageColorOverride(0x77AB2F) // Plains foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_PLAINS));
+            }
+
+            // ==================== DEFAULT - Temperate biomes ====================
+            default -> {
+                int skyColor = calculateSkyColor(biome.getTemperature());
+                builder.skyColor(skyColor)
+                       .fogColor(0xC0D8FF)            // Standard fog
+                       .waterColor(0x3F76E4)          // Standard water
+                       .waterFogColor(0x050533)       // Standard water fog
+                       .grassColorOverride(0x79C05A)  // Standard grass
+                       .foliageColorOverride(0x59AE30) // Standard foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_FOREST));
+            }
+        }
+
+        return builder;
     }
 
     /**
