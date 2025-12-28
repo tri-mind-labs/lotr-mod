@@ -618,77 +618,73 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * Get biome modifiers with continuous distance-weighted sampling for perfectly smooth transitions.
-     * Samples from a fixed world grid but calculates unique weights for every block position.
+     * Get biome modifiers with bilinear interpolation for perfectly smooth transitions.
+     * Uses 4-point sampling with linear interpolation in both X and Z directions.
+     * This guarantees no grid-aligned terracing artifacts.
      */
     private BiomeModifiers getBlendedBiomeModifiers(int worldX, int worldZ) {
-        // CONTINUOUS BLENDING: Sample from fixed grid points, but each block gets unique weights
-        // This eliminates terracing by ensuring every position has different blend values
+        // BILINEAR INTERPOLATION: Sample from 4 corner grid points and interpolate smoothly
+        // This is the mathematically correct way to eliminate ALL grid-aligned artifacts
 
-        // Grid spacing for sample points (fixed positions in world space)
-        final int GRID_SIZE = 64;  // Sample every 64 blocks (not chunk-aligned)
-        final double BLEND_RADIUS = 128.0;  // Blend over 128-block radius for gradual transitions
+        // Grid spacing - using smaller grid for finer control
+        final int GRID_SIZE = 32;  // Sample every 32 blocks for smoother transitions
 
         // Find the grid cell containing this position
-        // These are SAMPLE positions (fixed grid), NOT the query position
-        int gridX = Math.floorDiv(worldX, GRID_SIZE) * GRID_SIZE;
-        int gridZ = Math.floorDiv(worldZ, GRID_SIZE) * GRID_SIZE;
+        // x0, z0 = lower-left corner of the grid cell
+        int x0 = Math.floorDiv(worldX, GRID_SIZE) * GRID_SIZE;
+        int z0 = Math.floorDiv(worldZ, GRID_SIZE) * GRID_SIZE;
+        int x1 = x0 + GRID_SIZE;  // Upper-right corner X
+        int z1 = z0 + GRID_SIZE;  // Upper-right corner Z
 
-        // Sample in a 3×3 grid of fixed world positions
+        // Calculate interpolation factors (0.0 to 1.0 within the grid cell)
+        double fx = (double)(worldX - x0) / GRID_SIZE;  // Fraction along X axis
+        double fz = (double)(worldZ - z0) / GRID_SIZE;  // Fraction along Z axis
+
+        // Apply smoothstep to interpolation factors for extra smoothness
+        // smoothstep(t) = 3t² - 2t³ creates S-curve instead of linear
+        fx = fx * fx * (3.0 - 2.0 * fx);
+        fz = fz * fz * (3.0 - 2.0 * fz);
+
+        // Sample biome modifiers at the 4 corners of the grid cell
+        BiomeModifiers m00 = getBiomeModifiersAt(x0, z0);  // Lower-left
+        BiomeModifiers m10 = getBiomeModifiersAt(x1, z0);  // Lower-right
+        BiomeModifiers m01 = getBiomeModifiersAt(x0, z1);  // Upper-left
+        BiomeModifiers m11 = getBiomeModifiersAt(x1, z1);  // Upper-right
+
+        // Bilinear interpolation formula for each field:
+        // result = m00*(1-fx)*(1-fz) + m10*fx*(1-fz) + m01*(1-fx)*fz + m11*fx*fz
         BiomeModifiers result = new BiomeModifiers();
-        double totalWeight = 0.0;
 
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                // Sample position (fixed grid point in world space)
-                int sampleX = gridX + (dx * GRID_SIZE);
-                int sampleZ = gridZ + (dz * GRID_SIZE);
-
-                // Calculate distance from ACTUAL worldX/worldZ to this sample point
-                // This is the key: we use the real position, not grid-snapped
-                double distX = worldX - sampleX;
-                double distZ = worldZ - sampleZ;
-                double distance = Math.sqrt(distX * distX + distZ * distZ);
-
-                // Weight decreases with distance (inverse distance weighting)
-                // Using 1/(1+d²) for smooth continuous falloff
-                double weight = 1.0 / (1.0 + (distance * distance) / (BLEND_RADIUS * BLEND_RADIUS));
-
-                // Additional smoothstep for extra smoothness
-                // smoothstep(t) = 3t² - 2t³
-                weight = weight * weight * (3.0 - 2.0 * weight);
-
-                if (weight > 0.001) {  // Small threshold to avoid unnecessary samples
-                    BiomeModifiers sample = getBiomeModifiersAt(sampleX, sampleZ);
-
-                    result.flatFactor += sample.flatFactor * weight;
-                    result.hillFactor += sample.hillFactor * weight;
-                    result.mountainFactor += sample.mountainFactor * weight;
-                    result.riverFactor += sample.riverFactor * weight;
-                    result.baseHeightOffset += sample.baseHeightOffset * weight;
-                    result.terrainVariationScale += sample.terrainVariationScale * weight;
-                    result.mountainBaseHeight += sample.mountainBaseHeight * weight;
-
-                    totalWeight += weight;
-                }
-            }
-        }
-
-        // Normalize by total weight
-        if (totalWeight > 0.0) {
-            result.flatFactor /= totalWeight;
-            result.hillFactor /= totalWeight;
-            result.mountainFactor /= totalWeight;
-            result.riverFactor /= totalWeight;
-            result.baseHeightOffset /= totalWeight;
-            result.terrainVariationScale /= totalWeight;
-            result.mountainBaseHeight /= totalWeight;
-        } else {
-            // Fallback: use current position
-            result = getBiomeModifiersAt(worldX, worldZ);
-        }
+        result.flatFactor = bilinearInterp(m00.flatFactor, m10.flatFactor, m01.flatFactor, m11.flatFactor, fx, fz);
+        result.hillFactor = bilinearInterp(m00.hillFactor, m10.hillFactor, m01.hillFactor, m11.hillFactor, fx, fz);
+        result.mountainFactor = bilinearInterp(m00.mountainFactor, m10.mountainFactor, m01.mountainFactor, m11.mountainFactor, fx, fz);
+        result.riverFactor = bilinearInterp(m00.riverFactor, m10.riverFactor, m01.riverFactor, m11.riverFactor, fx, fz);
+        result.baseHeightOffset = bilinearInterp(m00.baseHeightOffset, m10.baseHeightOffset, m01.baseHeightOffset, m11.baseHeightOffset, fx, fz);
+        result.terrainVariationScale = bilinearInterp(m00.terrainVariationScale, m10.terrainVariationScale, m01.terrainVariationScale, m11.terrainVariationScale, fx, fz);
+        result.mountainBaseHeight = bilinearInterp(m00.mountainBaseHeight, m10.mountainBaseHeight, m01.mountainBaseHeight, m11.mountainBaseHeight, fx, fz);
 
         return result;
+    }
+
+    /**
+     * Bilinear interpolation helper function.
+     * Interpolates a value from 4 corners using fractional positions.
+     *
+     * @param v00 Value at corner (0,0) - lower-left
+     * @param v10 Value at corner (1,0) - lower-right
+     * @param v01 Value at corner (0,1) - upper-left
+     * @param v11 Value at corner (1,1) - upper-right
+     * @param fx Fraction along X axis (0.0 to 1.0)
+     * @param fz Fraction along Z axis (0.0 to 1.0)
+     * @return Interpolated value
+     */
+    private double bilinearInterp(double v00, double v10, double v01, double v11, double fx, double fz) {
+        // First interpolate along X axis for both Z values
+        double v0 = v00 * (1.0 - fx) + v10 * fx;  // Interpolate bottom edge
+        double v1 = v01 * (1.0 - fx) + v11 * fx;  // Interpolate top edge
+
+        // Then interpolate along Z axis
+        return v0 * (1.0 - fz) + v1 * fz;
     }
 
     /**
