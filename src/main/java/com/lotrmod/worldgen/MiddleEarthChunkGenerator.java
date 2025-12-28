@@ -690,10 +690,11 @@ public class MiddleEarthChunkGenerator extends ChunkGenerator {
         // This is the mathematically correct way to eliminate ALL grid-aligned artifacts
 
         // ⚠️ GRID SIZE TUNING: Controls the frequency of biome property sampling
-        // - Smaller values (4-8): Capture fine biome boundaries within regions, higher performance cost
-        // - Larger values (32-64): Miss fine biome details, create sharp transitions at biome boundaries
-        // - CURRENT VALUE: 32 blocks - CONFIRMED WORKING for regional blending
-        final int GRID_SIZE = 32;  // Sample every 32 blocks for smooth regional blending
+        // - Smaller values (4-8): Capture fine biome boundaries, smoother transitions, higher performance cost
+        // - Larger values (32-64): Miss fine biome details, create sharp cliffs at biome boundaries
+        // - REDUCED FROM 32 TO 8: Eliminates cliffs at biome boundaries by sampling more frequently
+        // - With 8-block sampling, neighboring grid points usually select the same biome, creating smooth interpolation
+        final int GRID_SIZE = 8;  // Sample every 8 blocks for smooth biome-level transitions
 
         // Find the grid cell containing this position
         // x0, z0 = lower-left corner of the grid cell
