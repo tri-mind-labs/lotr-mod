@@ -5,7 +5,7 @@
     "biome_source": {
       "type": "lotrmod:middleearth",
       "ocean_biome": "minecraft:ocean",
-      "land_biome": "lotrmod:eriador_plains",
+      "land_biome": "minecraft:plains",
       "beach_biome": "minecraft:beach"
     },
     "settings": "lotrmod:middleearth"
