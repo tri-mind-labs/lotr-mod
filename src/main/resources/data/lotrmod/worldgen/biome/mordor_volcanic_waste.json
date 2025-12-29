@@ -1,0 +1,40 @@
+{
+  "has_precipitation": false,
+  "temperature": 1.5,
+  "downfall": 0.0,
+  "effects": {
+    "sky_color": 7023660,
+    "fog_color": 4004378,
+    "water_color": 2823445,
+    "water_fog_color": 655874,
+    "grass_color": 3810840,
+    "foliage_color": 4005908,
+    "mood_sound": {
+      "sound": "minecraft:ambient.cave",
+      "tick_delay": 6000,
+      "block_search_extent": 8,
+      "offset": 2.0
+    }
+  },
+  "spawners": {
+    "monster": [
+      {
+        "type": "minecraft:zombie",
+        "weight": 100,
+        "minCount": 4,
+        "maxCount": 4
+      }
+    ],
+    "creature": [
+      {
+        "type": "minecraft:pig",
+        "weight": 10,
+        "minCount": 4,
+        "maxCount": 4
+      }
+    ]
+  },
+  "spawn_costs": {},
+  "carvers": {},
+  "features": []
+}
