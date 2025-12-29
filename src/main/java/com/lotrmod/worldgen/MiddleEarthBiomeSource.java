@@ -6,17 +6,18 @@ import com.lotrmod.worldgen.biome.ModBiomes;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
-import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -26,9 +27,9 @@ import java.util.stream.Stream;
 public class MiddleEarthBiomeSource extends BiomeSource {
     public static final MapCodec<MiddleEarthBiomeSource> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
-                    Biome.CODEC.fieldOf("ocean_biome").forGetter(source -> source.oceanBiome),
-                    Biome.CODEC.fieldOf("land_biome").forGetter(source -> source.landBiome),
-                    Biome.CODEC.fieldOf("beach_biome").forGetter(source -> source.beachBiome)
+                    Biome.CODEC.fieldOf("ocean_biome").forGetter((MiddleEarthBiomeSource source) -> source.oceanBiome),
+                    Biome.CODEC.fieldOf("land_biome").forGetter((MiddleEarthBiomeSource source) -> source.landBiome),
+                    Biome.CODEC.fieldOf("beach_biome").forGetter((MiddleEarthBiomeSource source) -> source.beachBiome)
             ).apply(instance, MiddleEarthBiomeSource::new)
     );
 
@@ -36,13 +37,16 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
 
+    // Cache of LOTR biome holders looked up from ModBiomes registry
+    private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
+
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
     private final PerlinSimplexNoise largeBiomeNoise; // Large-scale biome zones
     private final PerlinSimplexNoise smallBiomeNoise; // Small-scale variation
 
     public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome) {
-        // Store the legacy parameters (not used, but needed for codec compatibility)
+        // Store the fallback biomes from the dimension JSON
         this.oceanBiome = oceanBiome;
         this.landBiome = landBiome;
         this.beachBiome = beachBiome;
@@ -52,14 +56,35 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.largeBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2, 3));
         this.smallBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1));
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
+
+        // Build cache by looking up LOTR biomes from ModBiomes
+        initializeBiomeCache();
+    }
+
+    /**
+     * Initialize biome cache by looking up all LOTR biomes from ModBiomes registry
+     * This uses the DeferredRegister holders which get bound to the registry at startup
+     */
+    private void initializeBiomeCache() {
+        for (LOTRBiome lotrBiome : LOTRBiome.values()) {
+            // Get the DeferredHolder from ModBiomes
+            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+            if (holder != null) {
+                biomeHolderCache.put(lotrBiome, holder);
+            } else {
+                LOTRMod.LOGGER.warn("Failed to find biome holder for: {}", lotrBiome.getName());
+            }
+        }
+        LOTRMod.LOGGER.info("Initialized {} LOTR biome holders from ModBiomes", biomeHolderCache.size());
     }
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // This is called during codec initialization when registries aren't bound yet
-        // We can't access LOTR biomes here, so just return fallbacks
-        // The actual LOTR biomes will be returned by getNoiseBiome() during world gen
-        return Stream.of(oceanBiome, landBiome, beachBiome);
+        // Return all LOTR biomes plus fallbacks
+        return Stream.concat(
+            biomeHolderCache.values().stream(),
+            Stream.of(oceanBiome, landBiome, beachBiome)
+        );
     }
 
     @Override
@@ -145,61 +170,11 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
-     * Returns the DeferredHolder directly - no caching needed
+     * Returns registry-bound holder from cache
      */
-    @SuppressWarnings("unchecked")
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        // Cast DeferredHolder<Biome, Biome> to Holder<Biome>
-        // This is safe because DeferredHolder extends Holder
-        return (Holder<Biome>) (Holder<?>) switch (lotrBiome) {
-            case LINDON_BEECH_FOREST -> ModBiomes.LINDON_BEECH_FOREST;
-            case LINDON_MEADOW -> ModBiomes.LINDON_MEADOW;
-            case LINDON_LIMESTONE_HILLS -> ModBiomes.LINDON_LIMESTONE_HILLS;
-            case BLUE_MOUNTAINS -> ModBiomes.BLUE_MOUNTAINS;
-            case ERIADOR_ROLLING_HILLS -> ModBiomes.ERIADOR_ROLLING_HILLS;
-            case ERIADOR_PLAINS -> ModBiomes.ERIADOR_PLAINS;
-            case ERIADOR_MIXED_FOREST -> ModBiomes.ERIADOR_MIXED_FOREST;
-            case ERIADOR_OLD_FOREST -> ModBiomes.ERIADOR_OLD_FOREST;
-            case ARNOR_ROCKY_HILLS -> ModBiomes.ARNOR_ROCKY_HILLS;
-            case ARNOR_PLAINS -> ModBiomes.ARNOR_PLAINS;
-            case ARNOR_OLD_FOREST -> ModBiomes.ARNOR_OLD_FOREST;
-            case ARNOR_MARSH -> ModBiomes.ARNOR_MARSH;
-            case MISTY_MOUNTAINS -> ModBiomes.MISTY_MOUNTAINS;
-            case GREY_MOUNTAINS -> ModBiomes.GREY_MOUNTAINS;
-            case WHITE_MOUNTAINS -> ModBiomes.WHITE_MOUNTAINS;
-            case MOUNTAINS_OF_SHADOW -> ModBiomes.MOUNTAINS_OF_SHADOW;
-            case GONDOR_OLIVE_FOREST -> ModBiomes.GONDOR_OLIVE_FOREST;
-            case GONDOR_PLAINS -> ModBiomes.GONDOR_PLAINS;
-            case GONDOR_ROLLING_HILLS -> ModBiomes.GONDOR_ROLLING_HILLS;
-            case HARAD_DESERT -> ModBiomes.HARAD_DESERT;
-            case HARAD_SAVANNA -> ModBiomes.HARAD_SAVANNA;
-            case HARAD_JUNGLE -> ModBiomes.HARAD_JUNGLE;
-            case LOTHLORIEN -> ModBiomes.LOTHLORIEN;
-            case MIRKWOOD -> ModBiomes.MIRKWOOD;
-            case DALE_ROCKY_HILLS -> ModBiomes.DALE_ROCKY_HILLS;
-            case DALE_PLAINS -> ModBiomes.DALE_PLAINS;
-            case DALE_MIXED_FOREST -> ModBiomes.DALE_MIXED_FOREST;
-            case EREBOR -> ModBiomes.EREBOR;
-            case IRON_HILLS -> ModBiomes.IRON_HILLS;
-            case ROHAN_GRASSLAND -> ModBiomes.ROHAN_GRASSLAND;
-            case ROHAN_ROCKY_HILLS -> ModBiomes.ROHAN_ROCKY_HILLS;
-            case MORDOR_VOLCANIC_WASTE -> ModBiomes.MORDOR_VOLCANIC_WASTE;
-            case RHUN_GRASSLAND -> ModBiomes.RHUN_GRASSLAND;
-            case RHUN_SHRUBLANDS -> ModBiomes.RHUN_SHRUBLANDS;
-            case FANGORN_FOREST -> ModBiomes.FANGORN_FOREST;
-            case ANDUIN_RIVER -> ModBiomes.ANDUIN_RIVER;
-            case VALE_OF_ANDUIN_FLOODPLAINS -> ModBiomes.VALE_OF_ANDUIN_FLOODPLAINS;
-            case DEAD_LANDS_EMPTY -> ModBiomes.DEAD_LANDS_EMPTY;
-            case CELDUIN_RIVER -> ModBiomes.CELDUIN_RIVER;
-            case EASTERN_RHOVANIAN_GRASSLAND -> ModBiomes.EASTERN_RHOVANIAN_GRASSLAND;
-            case EASTERN_RHOVANIAN_SHRUBLANDS -> ModBiomes.EASTERN_RHOVANIAN_SHRUBLANDS;
-            case SEA_OF_RHUN -> ModBiomes.SEA_OF_RHUN;
-            case FORODWAITH_TUNDRA -> ModBiomes.FORODWAITH_TUNDRA;
-            case FORODWAITH_ICY_MOUNTAINS -> ModBiomes.FORODWAITH_ICY_MOUNTAINS;
-            case FORODWAITH_ROCKY_BARRENS -> ModBiomes.FORODWAITH_ROCKY_BARRENS;
-            case THE_SHIRE -> ModBiomes.THE_SHIRE;
-            case RIVENDELL -> ModBiomes.RIVENDELL;
-        };
+        // Get from cache, or fallback to plains if somehow not found
+        return biomeHolderCache.getOrDefault(lotrBiome, landBiome);
     }
 
     /**
