@@ -140,17 +140,14 @@ public class ModBiomes {
 
     /**
      * Create a Minecraft biome from a LOTR biome definition
-     * FIXED: No longer passes null to BiomeGenerationSettings.Builder
      */
     private static Biome createBiome(LOTRBiome lotrBiome) {
-        // Create builders WITHOUT holder getters (they're optional and cause issues when null)
-        BiomeGenerationSettings.Builder generationBuilder = new BiomeGenerationSettings.Builder();
+        // Create generation settings with empty placeholders
+        BiomeGenerationSettings.PlainBuilder generationBuilder = new BiomeGenerationSettings.PlainBuilder();
         MobSpawnSettings.Builder spawnBuilder = new MobSpawnSettings.Builder();
 
         // Add basic features (minimal to start - we can expand later)
-        // Don't add too many vanilla features as they can interfere with custom generation
-        BiomeDefaultFeatures.addDefaultOres(generationBuilder);
-        BiomeDefaultFeatures.addDefaultSoftDisks(generationBuilder);
+        // Features are added via datapacks or bootstrap context, not here
         
         // Add simple mob spawning
         BiomeDefaultFeatures.commonSpawns(spawnBuilder);
