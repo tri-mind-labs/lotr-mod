@@ -471,6 +471,87 @@ public class ModBiomes {
     }
 
     /**
+     * Get the biome holder for a LOTR biome enum value
+     * Returns the DeferredHolder which is bound to the registry after registration
+     */
+    public static net.minecraft.core.Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
+        return switch (lotrBiome) {
+            // LINDON
+            case LINDON_BEECH_FOREST -> LINDON_BEECH_FOREST;
+            case LINDON_MEADOW -> LINDON_MEADOW;
+            case LINDON_LIMESTONE_HILLS -> LINDON_LIMESTONE_HILLS;
+            // BLUE MOUNTAINS
+            case BLUE_MOUNTAINS -> BLUE_MOUNTAINS;
+            // ERIADOR
+            case ERIADOR_ROLLING_HILLS -> ERIADOR_ROLLING_HILLS;
+            case ERIADOR_PLAINS -> ERIADOR_PLAINS;
+            case ERIADOR_MIXED_FOREST -> ERIADOR_MIXED_FOREST;
+            case ERIADOR_OLD_FOREST -> ERIADOR_OLD_FOREST;
+            // ARNOR
+            case ARNOR_ROCKY_HILLS -> ARNOR_ROCKY_HILLS;
+            case ARNOR_PLAINS -> ARNOR_PLAINS;
+            case ARNOR_OLD_FOREST -> ARNOR_OLD_FOREST;
+            case ARNOR_MARSH -> ARNOR_MARSH;
+            // MOUNTAINS
+            case MISTY_MOUNTAINS -> MISTY_MOUNTAINS;
+            case GREY_MOUNTAINS -> GREY_MOUNTAINS;
+            case WHITE_MOUNTAINS -> WHITE_MOUNTAINS;
+            case MOUNTAINS_OF_SHADOW -> MOUNTAINS_OF_SHADOW;
+            // GONDOR
+            case GONDOR_OLIVE_FOREST -> GONDOR_OLIVE_FOREST;
+            case GONDOR_PLAINS -> GONDOR_PLAINS;
+            case GONDOR_ROLLING_HILLS -> GONDOR_ROLLING_HILLS;
+            // HARAD
+            case HARAD_DESERT -> HARAD_DESERT;
+            case HARAD_SAVANNA -> HARAD_SAVANNA;
+            case HARAD_JUNGLE -> HARAD_JUNGLE;
+            // LOTHLORIEN
+            case LOTHLORIEN -> LOTHLORIEN;
+            // MIRKWOOD
+            case MIRKWOOD -> MIRKWOOD;
+            // DALE
+            case DALE_ROCKY_HILLS -> DALE_ROCKY_HILLS;
+            case DALE_PLAINS -> DALE_PLAINS;
+            case DALE_MIXED_FOREST -> DALE_MIXED_FOREST;
+            // EREBOR
+            case EREBOR -> EREBOR;
+            // IRON HILLS
+            case IRON_HILLS -> IRON_HILLS;
+            // ROHAN
+            case ROHAN_GRASSLAND -> ROHAN_GRASSLAND;
+            case ROHAN_ROCKY_HILLS -> ROHAN_ROCKY_HILLS;
+            // MORDOR
+            case MORDOR_VOLCANIC_WASTE -> MORDOR_VOLCANIC_WASTE;
+            // RHUN
+            case RHUN_GRASSLAND -> RHUN_GRASSLAND;
+            case RHUN_SHRUBLANDS -> RHUN_SHRUBLANDS;
+            // FANGORN FOREST
+            case FANGORN_FOREST -> FANGORN_FOREST;
+            // ANDUIN RIVER
+            case ANDUIN_RIVER -> ANDUIN_RIVER;
+            // VALE OF ANDUIN
+            case VALE_OF_ANDUIN_FLOODPLAINS -> VALE_OF_ANDUIN_FLOODPLAINS;
+            // DEAD LANDS
+            case DEAD_LANDS_EMPTY -> DEAD_LANDS_EMPTY;
+            // CELDUIN
+            case CELDUIN_RIVER -> CELDUIN_RIVER;
+            // EASTERN RHOVANIAN PLAINS
+            case EASTERN_RHOVANIAN_GRASSLAND -> EASTERN_RHOVANIAN_GRASSLAND;
+            case EASTERN_RHOVANIAN_SHRUBLANDS -> EASTERN_RHOVANIAN_SHRUBLANDS;
+            // SEA OF RHUN
+            case SEA_OF_RHUN -> SEA_OF_RHUN;
+            // FORODWAITH
+            case FORODWAITH_TUNDRA -> FORODWAITH_TUNDRA;
+            case FORODWAITH_ICY_MOUNTAINS -> FORODWAITH_ICY_MOUNTAINS;
+            case FORODWAITH_ROCKY_BARRENS -> FORODWAITH_ROCKY_BARRENS;
+            // THE SHIRE
+            case THE_SHIRE -> THE_SHIRE;
+            // RIVENDELL
+            case RIVENDELL -> RIVENDELL;
+        };
+    }
+
+    /**
      * Helper record to store biome with weight
      */
     public record WeightedBiomeEntry(LOTRBiome biome, int weight) {}

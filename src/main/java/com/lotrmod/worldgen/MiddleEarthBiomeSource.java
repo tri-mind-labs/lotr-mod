@@ -6,11 +6,9 @@ import com.lotrmod.worldgen.biome.ModBiomes;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
-import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.resources.RegistryCodecs;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
@@ -29,19 +27,17 @@ import java.util.stream.Stream;
 public class MiddleEarthBiomeSource extends BiomeSource {
     public static final MapCodec<MiddleEarthBiomeSource> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
-                    Biome.CODEC.fieldOf("ocean_biome").forGetter(source -> source.oceanBiome),
-                    Biome.CODEC.fieldOf("land_biome").forGetter(source -> source.landBiome),
-                    Biome.CODEC.fieldOf("beach_biome").forGetter(source -> source.beachBiome),
-                    RegistryCodecs.homogeneousList(Registries.BIOME).fieldOf("biomes").forGetter(source -> source.possibleBiomes)
+                    Biome.CODEC.fieldOf("ocean_biome").forGetter((MiddleEarthBiomeSource source) -> source.oceanBiome),
+                    Biome.CODEC.fieldOf("land_biome").forGetter((MiddleEarthBiomeSource source) -> source.landBiome),
+                    Biome.CODEC.fieldOf("beach_biome").forGetter((MiddleEarthBiomeSource source) -> source.beachBiome)
             ).apply(instance, MiddleEarthBiomeSource::new)
     );
 
     private final Holder<Biome> oceanBiome;
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
-    private final HolderSet<Biome> possibleBiomes;
 
-    // Cache of LOTR biome holders mapped from the provided biome set
+    // Cache of LOTR biome holders looked up from ModBiomes registry
     private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
 
     // Noise generator for biome selection within regions
@@ -49,12 +45,11 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final PerlinSimplexNoise largeBiomeNoise; // Large-scale biome zones
     private final PerlinSimplexNoise smallBiomeNoise; // Small-scale variation
 
-    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome, HolderSet<Biome> possibleBiomes) {
-        // Store the parameters from the dimension JSON
+    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome) {
+        // Store the fallback biomes from the dimension JSON
         this.oceanBiome = oceanBiome;
         this.landBiome = landBiome;
         this.beachBiome = beachBiome;
-        this.possibleBiomes = possibleBiomes;
 
         // Initialize noise generators for smooth biome transitions
         RandomSource random = RandomSource.create(54321); // Fixed seed for consistency
@@ -62,41 +57,32 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.smallBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1));
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
 
-        // Build cache from the provided biome set
+        // Build cache by looking up LOTR biomes from ModBiomes
         initializeBiomeCache();
     }
 
     /**
-     * Initialize biome cache by matching biome holders from the dimension config
-     * to the LOTRBiome enum values by their resource location
+     * Initialize biome cache by looking up all LOTR biomes from ModBiomes registry
+     * This uses the DeferredRegister holders which get bound to the registry at startup
      */
     private void initializeBiomeCache() {
-        for (Holder<Biome> holder : possibleBiomes) {
-            // Get the resource location of this biome
-            ResourceLocation location = holder.unwrapKey()
-                .map(ResourceKey::location)
-                .orElse(null);
-
-            if (location != null && location.getNamespace().equals(LOTRMod.MODID)) {
-                String biomeName = location.getPath();
-
-                // Find matching LOTRBiome enum value
-                for (LOTRBiome lotrBiome : LOTRBiome.values()) {
-                    if (lotrBiome.getName().equals(biomeName)) {
-                        biomeHolderCache.put(lotrBiome, holder);
-                        break;
-                    }
-                }
+        for (LOTRBiome lotrBiome : LOTRBiome.values()) {
+            // Get the DeferredHolder from ModBiomes
+            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+            if (holder != null) {
+                biomeHolderCache.put(lotrBiome, holder);
+            } else {
+                LOTRMod.LOGGER.warn("Failed to find biome holder for: {}", lotrBiome.getName());
             }
         }
-        LOTRMod.LOGGER.info("Initialized {} LOTR biome holders from dimension config", biomeHolderCache.size());
+        LOTRMod.LOGGER.info("Initialized {} LOTR biome holders from ModBiomes", biomeHolderCache.size());
     }
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // Return all biomes from the holder set plus fallbacks
+        // Return all LOTR biomes plus fallbacks
         return Stream.concat(
-            possibleBiomes.stream(),
+            biomeHolderCache.values().stream(),
             Stream.of(oceanBiome, landBiome, beachBiome)
         );
     }
