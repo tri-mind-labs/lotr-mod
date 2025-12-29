@@ -38,7 +38,9 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final Holder<Biome> beachBiome;
 
     // Cache of LOTR biome holders looked up from ModBiomes registry
+    // Initialized lazily to avoid registry timing issues during codec deserialization
     private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
+    private volatile boolean cacheInitialized = false;
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
@@ -57,15 +59,19 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.smallBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1));
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
 
-        // Build cache by looking up LOTR biomes from ModBiomes
-        initializeBiomeCache();
+        // Don't initialize cache here - wait until first worldgen use
+        // This avoids registry timing issues during dimension loading
     }
 
     /**
      * Initialize biome cache by looking up all LOTR biomes from ModBiomes registry
-     * This uses the DeferredRegister holders which get bound to the registry at startup
+     * This is called lazily on first use to avoid registry timing issues
      */
-    private void initializeBiomeCache() {
+    private synchronized void initializeBiomeCache() {
+        if (cacheInitialized) {
+            return;
+        }
+
         for (LOTRBiome lotrBiome : LOTRBiome.values()) {
             // Get the DeferredHolder from ModBiomes
             Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
@@ -75,11 +81,18 @@ public class MiddleEarthBiomeSource extends BiomeSource {
                 LOTRMod.LOGGER.warn("Failed to find biome holder for: {}", lotrBiome.getName());
             }
         }
+
+        cacheInitialized = true;
         LOTRMod.LOGGER.info("Initialized {} LOTR biome holders from ModBiomes", biomeHolderCache.size());
     }
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
+        // Initialize cache if needed
+        if (!cacheInitialized) {
+            initializeBiomeCache();
+        }
+
         // Return all LOTR biomes plus fallbacks
         return Stream.concat(
             biomeHolderCache.values().stream(),
@@ -173,6 +186,11 @@ public class MiddleEarthBiomeSource extends BiomeSource {
      * Returns registry-bound holder from cache
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
+        // Initialize cache lazily on first use
+        if (!cacheInitialized) {
+            initializeBiomeCache();
+        }
+
         // Get from cache, or fallback to plains if somehow not found
         return biomeHolderCache.getOrDefault(lotrBiome, landBiome);
     }
