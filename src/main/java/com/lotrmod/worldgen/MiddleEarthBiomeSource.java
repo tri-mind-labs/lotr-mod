@@ -6,8 +6,7 @@ import com.lotrmod.worldgen.biome.ModBiomes;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -53,22 +52,25 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.landBiome = landBiome;
         this.beachBiome = beachBiome;
 
-        // Build cache by looking up LOTR biomes from the built-in registry
-        // By the time this constructor runs (during world load), our biomes should be registered
-        // This gives us proper registry-bound Holder.Reference objects that can be serialized
+        // Build cache by directly accessing the DeferredHolder objects
+        // These will be automatically resolved to proper holders when accessed
         this.biomeHolderCache = new HashMap<>();
-        Registry<Biome> biomeRegistry = BuiltInRegistries.BIOME;
 
         for (LOTRBiome lotrBiome : LOTRBiome.values()) {
-            ResourceKey<Biome> key = ResourceKey.create(
-                Registries.BIOME,
-                new ResourceLocation(LOTRMod.MODID, lotrBiome.getName())
-            );
-
-            // Look up the holder from the registry
-            biomeRegistry.getHolder(key).ifPresent(holder -> {
-                biomeHolderCache.put(lotrBiome, holder);
-            });
+            // Get the holder directly from ModBiomes
+            // DeferredHolders act as Holder<Biome> and should be resolved by now
+            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+            if (holder != null) {
+                // Wrap in Holder.Direct to make it serializable
+                // This creates a value-based holder that can be saved/synced
+                try {
+                    Biome biomeValue = holder.value();
+                    biomeHolderCache.put(lotrBiome, Holder.direct(biomeValue));
+                } catch (Exception e) {
+                    // If we can't get the biome value yet, skip it
+                    // Will fall back to landBiome
+                }
+            }
         }
 
         // Initialize noise generators for smooth biome transitions
