@@ -37,11 +37,6 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
 
-    // Cache of LOTR biome holders looked up from ModBiomes registry
-    // Initialized lazily to avoid registry timing issues during codec deserialization
-    private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache = new HashMap<>();
-    private volatile boolean cacheInitialized = false;
-
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
     private final PerlinSimplexNoise largeBiomeNoise; // Large-scale biome zones
@@ -58,46 +53,14 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.largeBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2, 3));
         this.smallBiomeNoise = new PerlinSimplexNoise(random, List.of(0, 1));
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
-
-        // Don't initialize cache here - wait until first worldgen use
-        // This avoids registry timing issues during dimension loading
-    }
-
-    /**
-     * Initialize biome cache by looking up all LOTR biomes from ModBiomes registry
-     * This is called lazily on first use to avoid registry timing issues
-     */
-    private synchronized void initializeBiomeCache() {
-        if (cacheInitialized) {
-            return;
-        }
-
-        for (LOTRBiome lotrBiome : LOTRBiome.values()) {
-            // Get the DeferredHolder from ModBiomes
-            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
-            if (holder != null) {
-                biomeHolderCache.put(lotrBiome, holder);
-            } else {
-                LOTRMod.LOGGER.warn("Failed to find biome holder for: {}", lotrBiome.getName());
-            }
-        }
-
-        cacheInitialized = true;
-        LOTRMod.LOGGER.info("Initialized {} LOTR biome holders from ModBiomes", biomeHolderCache.size());
     }
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // Initialize cache if needed
-        if (!cacheInitialized) {
-            initializeBiomeCache();
-        }
-
-        // Return all LOTR biomes plus fallbacks
-        return Stream.concat(
-            biomeHolderCache.values().stream(),
-            Stream.of(oceanBiome, landBiome, beachBiome)
-        );
+        // Only return fallback biomes to avoid triggering DeferredHolder registry checks during init
+        // LOTR biomes are still used via getNoiseBiome(), they just aren't in this list
+        // This list is mainly used for structure placement checks, which we've disabled anyway
+        return Stream.of(oceanBiome, landBiome, beachBiome);
     }
 
     @Override
@@ -183,16 +146,13 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
-     * Returns registry-bound holder from cache
+     * Returns the DeferredHolder from ModBiomes which will be bound when dereferenced
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        // Initialize cache lazily on first use
-        if (!cacheInitialized) {
-            initializeBiomeCache();
-        }
-
-        // Get from cache, or fallback to plains if somehow not found
-        return biomeHolderCache.getOrDefault(lotrBiome, landBiome);
+        // Get the DeferredHolder directly from ModBiomes
+        // It acts as a Holder<Biome> and will be properly bound by the time it's used
+        Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+        return holder != null ? holder : landBiome;
     }
 
     /**
