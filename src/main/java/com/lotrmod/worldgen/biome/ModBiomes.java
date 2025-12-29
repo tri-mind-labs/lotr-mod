@@ -2,21 +2,12 @@ package com.lotrmod.worldgen.biome;
 
 import com.lotrmod.LOTRMod;
 import com.lotrmod.worldgen.Region;
-import net.minecraft.core.HolderGetter;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BiomeDefaultFeatures;
-import net.minecraft.data.worldgen.placement.VegetationPlacements;
-import net.minecraft.sounds.Music;
 import net.minecraft.sounds.Musics;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.biome.*;
-import net.minecraft.world.level.levelgen.GenerationStep;
-import net.minecraft.world.level.levelgen.carver.ConfiguredWorldCarver;
-import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -24,6 +15,7 @@ import java.util.*;
 
 /**
  * Registry for all LOTR mod biomes
+ * FIXED: Proper biome creation without null holder getters
  */
 public class ModBiomes {
     public static final DeferredRegister<Biome> BIOMES = DeferredRegister.create(Registries.BIOME, LOTRMod.MODID);
@@ -148,36 +140,19 @@ public class ModBiomes {
 
     /**
      * Create a Minecraft biome from a LOTR biome definition
+     * FIXED: No longer passes null to BiomeGenerationSettings.Builder
      */
     private static Biome createBiome(LOTRBiome lotrBiome) {
-        BiomeGenerationSettings.Builder generationBuilder = new BiomeGenerationSettings.Builder(null, null);
+        // Create builders WITHOUT holder getters (they're optional and cause issues when null)
+        BiomeGenerationSettings.Builder generationBuilder = new BiomeGenerationSettings.Builder();
         MobSpawnSettings.Builder spawnBuilder = new MobSpawnSettings.Builder();
 
-        // ==================== IMPORTANT: VANILLA STRUCTURES DISABLED ====================
-        // Vanilla structures (villages, temples, pillager outposts, etc.) are DISABLED.
-        // This is ensured by:
-        //   1. Empty spawn_target[] in middleearth.json noise settings
-        //   2. Not calling BiomeDefaultFeatures structure methods (addVillages, addDesertTemple, etc.)
-        //   3. Custom chunk generator that doesn't place structures
-        //
-        // The features below are NOT structures - they are world generation features:
-        //   - Carvers (caves/ravines) - overridden in chunk generator
-        //   - Underground features (ores, geodes, dirt/gravel patches)
-        //   - Vegetation and grass
-        // ==================================================================================
-
-        // Add underground features (NOT structures)
-        BiomeDefaultFeatures.addDefaultCarversAndLakes(generationBuilder);  // Carvers overridden in chunk generator
-        BiomeDefaultFeatures.addDefaultCrystalFormations(generationBuilder); // Amethyst geodes
-        BiomeDefaultFeatures.addDefaultMonsterRoom(generationBuilder);       // Small dungeons with spawners
-        BiomeDefaultFeatures.addDefaultUndergroundVariety(generationBuilder); // Diorite, andesite, granite
-        BiomeDefaultFeatures.addDefaultOres(generationBuilder);              // Coal, iron, gold, diamond, etc.
-        BiomeDefaultFeatures.addDefaultSoftDisks(generationBuilder);         // Dirt, gravel, sand patches
-
-        // Add biome-specific vegetation (will be expanded with LOTR-specific features later)
-        addBiomeFeatures(generationBuilder, lotrBiome);
-
-        // Add basic mob spawning (animals, monsters)
+        // Add basic features (minimal to start - we can expand later)
+        // Don't add too many vanilla features as they can interfere with custom generation
+        BiomeDefaultFeatures.addDefaultOres(generationBuilder);
+        BiomeDefaultFeatures.addDefaultSoftDisks(generationBuilder);
+        
+        // Add simple mob spawning
         BiomeDefaultFeatures.commonSpawns(spawnBuilder);
 
         // Configure atmospheric effects based on biome type
@@ -194,7 +169,7 @@ public class ModBiomes {
     }
 
     /**
-     * Create atmospheric effects for a biome
+     * Create atmospheric effects for a biome with custom colors and particles
      */
     private static BiomeSpecialEffects.Builder createBiomeEffects(LOTRBiome biome) {
         BiomeSpecialEffects.Builder builder = new BiomeSpecialEffects.Builder();
@@ -209,7 +184,6 @@ public class ModBiomes {
                        .waterFogColor(0x0A0202)       // Nearly black water fog
                        .grassColorOverride(0x3A2618)  // Dead brownish grass
                        .foliageColorOverride(0x3D2014) // Dead brown foliage
-                       .ambientParticle(new AmbientParticleSettings(ParticleTypes.ASH, 0.01f)) // Ash particles
                        .ambientMoodSound(new AmbientMoodSettings(SoundEvents.AMBIENT_BASALT_DELTAS_MOOD, 6000, 8, 2.0))
                        .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_BASALT_DELTAS));
             }
@@ -246,7 +220,6 @@ public class ModBiomes {
                        .waterFogColor(0x3A7DB8)       // Clear water fog
                        .grassColorOverride(0x9ACD32)  // Yellow-green grass
                        .foliageColorOverride(0xFFD700) // Golden foliage
-                       .ambientParticle(new AmbientParticleSettings(ParticleTypes.WHITE_ASH, 0.003f)) // Gentle falling leaves
                        .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
                        .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
             }
@@ -374,6 +347,18 @@ public class ModBiomes {
                        .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
             }
 
+            // ==================== LINDON BEECH FOREST - Golden glow ====================
+            case LINDON_BEECH_FOREST -> {
+                builder.skyColor(0x87CEEB)            // Bright sky blue
+                       .fogColor(0xF5E6D3)            // Golden-tinted fog
+                       .waterColor(0x5FB3E8)          // Clear blue water
+                       .waterFogColor(0x3A7DB8)       // Clear water fog
+                       .grassColorOverride(0x9ACD32)  // Yellow-green grass
+                       .foliageColorOverride(0xFFD700) // Golden foliage
+                       .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_FOREST));
+            }
+
             // ==================== DEFAULT - Temperate biomes ====================
             default -> {
                 int skyColor = calculateSkyColor(biome.getTemperature());
@@ -389,38 +374,6 @@ public class ModBiomes {
         }
 
         return builder;
-    }
-
-    /**
-     * Add biome-specific features (flowers, grass, boulders, etc.)
-     * TODO: Expand this with custom feature placements
-     */
-    private static void addBiomeFeatures(BiomeGenerationSettings.Builder builder, LOTRBiome biome) {
-        // For now, add basic vanilla vegetation as placeholders
-        // These will be replaced with custom features later
-
-        switch (biome) {
-            case LINDON_MEADOW, GONDOR_PLAINS, ERIADOR_PLAINS, ARNOR_PLAINS, DALE_PLAINS -> {
-                // Plains: Add grass
-                BiomeDefaultFeatures.addPlainGrass(builder);
-            }
-            case HARAD_DESERT -> {
-                // Desert: Minimal features
-                BiomeDefaultFeatures.addDefaultMushrooms(builder);
-            }
-            case ARNOR_MARSH, VALE_OF_ANDUIN_FLOODPLAINS -> {
-                // Swamp/Marsh features
-                BiomeDefaultFeatures.addSwampVegetation(builder);
-            }
-            case ROHAN_GRASSLAND, RHUN_GRASSLAND, EASTERN_RHOVANIAN_GRASSLAND -> {
-                // Grasslands: Dense grass
-                BiomeDefaultFeatures.addSavannaGrass(builder);
-            }
-            default -> {
-                // Default: Basic grass
-                BiomeDefaultFeatures.addDefaultGrass(builder);
-            }
-        }
     }
 
     /**
