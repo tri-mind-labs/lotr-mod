@@ -359,7 +359,7 @@ public class ModBiomes {
                        .grassColorOverride(0x7EC850)  // Riverbank grass
                        .foliageColorOverride(0x6CBE30) // Riverbank foliage
                        .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
-                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_RIVER));
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
             }
 
             // ==================== GRASSLANDS - Open plains and prairies ====================
@@ -371,7 +371,7 @@ public class ModBiomes {
                        .grassColorOverride(0x91BD59)  // Plains grass
                        .foliageColorOverride(0x77AB2F) // Plains foliage
                        .ambientMoodSound(AmbientMoodSettings.LEGACY_CAVE_SETTINGS)
-                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_PLAINS));
+                       .backgroundMusic(Musics.createGameMusic(SoundEvents.MUSIC_BIOME_MEADOW));
             }
 
             // ==================== DEFAULT - Temperate biomes ====================
