@@ -38,8 +38,9 @@ public class MiddleEarthBiomeSource extends BiomeSource {
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
 
-    // Cache mapping LOTRBiome enum to registry-bound holders looked up from BuiltInRegistries
-    private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache;
+    // Cache mapping LOTRBiome enum to serializable holders (built lazily on first use)
+    private Map<LOTRBiome, Holder<Biome>> biomeHolderCache;
+    private boolean cacheInitialized = false;
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
@@ -52,26 +53,8 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.landBiome = landBiome;
         this.beachBiome = beachBiome;
 
-        // Build cache by directly accessing the DeferredHolder objects
-        // These will be automatically resolved to proper holders when accessed
-        this.biomeHolderCache = new HashMap<>();
-
-        for (LOTRBiome lotrBiome : LOTRBiome.values()) {
-            // Get the holder directly from ModBiomes
-            // DeferredHolders act as Holder<Biome> and should be resolved by now
-            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
-            if (holder != null) {
-                // Wrap in Holder.Direct to make it serializable
-                // This creates a value-based holder that can be saved/synced
-                try {
-                    Biome biomeValue = holder.value();
-                    biomeHolderCache.put(lotrBiome, Holder.direct(biomeValue));
-                } catch (Exception e) {
-                    // If we can't get the biome value yet, skip it
-                    // Will fall back to landBiome
-                }
-            }
-        }
+        // DON'T build the cache here - the biomes aren't registered yet!
+        // Cache will be built lazily on first call to getBiomeHolder()
 
         // Initialize noise generators for smooth biome transitions
         RandomSource random = RandomSource.create(54321); // Fixed seed for consistency
@@ -80,8 +63,40 @@ public class MiddleEarthBiomeSource extends BiomeSource {
         this.biomeNoise = new PerlinSimplexNoise(random, List.of(0, 1, 2));
     }
 
+    /**
+     * Initialize the biome cache on first use
+     * By this time, biomes should be registered and DeferredHolders can be dereferenced
+     */
+    private synchronized void ensureCacheInitialized() {
+        if (cacheInitialized) {
+            return;
+        }
+
+        this.biomeHolderCache = new HashMap<>();
+
+        for (LOTRBiome lotrBiome : LOTRBiome.values()) {
+            Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+            if (holder != null) {
+                try {
+                    // Get the actual Biome object and wrap in Holder.direct() for serialization
+                    Biome biomeValue = holder.value();
+                    biomeHolderCache.put(lotrBiome, Holder.direct(biomeValue));
+                } catch (Exception e) {
+                    // Log the error but continue - will use fallback biome
+                    System.err.println("Failed to initialize biome holder for " + lotrBiome.getName() + ": " + e.getMessage());
+                }
+            }
+        }
+
+        cacheInitialized = true;
+        System.out.println("MiddleEarthBiomeSource: Initialized " + biomeHolderCache.size() + " biome holders");
+    }
+
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
+        // Initialize cache if needed
+        ensureCacheInitialized();
+
         // Return all LOTR biomes from the cache plus fallback biomes
         // These are registry-bound holders that can be properly serialized
         return Stream.concat(
@@ -173,12 +188,14 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
-     * Returns registry-bound holders from the cache (decoded from dimension JSON)
+     * Returns serializable holders from the lazy-initialized cache
      * These holders can be properly serialized for chunk save and network sync
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        // Get the registry-bound holder from cache
-        // These were decoded from the dimension JSON and are proper Holder.Reference objects
+        // Initialize cache on first use (by this time biomes are registered)
+        ensureCacheInitialized();
+
+        // Get the holder from cache
         Holder<Biome> holder = biomeHolderCache.get(lotrBiome);
         return holder != null ? holder : landBiome;
     }
