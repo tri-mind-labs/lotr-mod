@@ -29,24 +29,46 @@ public class MiddleEarthBiomeSource extends BiomeSource {
             instance -> instance.group(
                     Biome.CODEC.fieldOf("ocean_biome").forGetter((MiddleEarthBiomeSource source) -> source.oceanBiome),
                     Biome.CODEC.fieldOf("land_biome").forGetter((MiddleEarthBiomeSource source) -> source.landBiome),
-                    Biome.CODEC.fieldOf("beach_biome").forGetter((MiddleEarthBiomeSource source) -> source.beachBiome)
+                    Biome.CODEC.fieldOf("beach_biome").forGetter((MiddleEarthBiomeSource source) -> source.beachBiome),
+                    Biome.CODEC.listOf().fieldOf("biomes").forGetter((MiddleEarthBiomeSource source) -> source.allBiomes)
             ).apply(instance, MiddleEarthBiomeSource::new)
     );
 
     private final Holder<Biome> oceanBiome;
     private final Holder<Biome> landBiome;
     private final Holder<Biome> beachBiome;
+    private final List<Holder<Biome>> allBiomes;
+
+    // Cache mapping LOTRBiome enum to registry-bound holders from the codec
+    private final Map<LOTRBiome, Holder<Biome>> biomeHolderCache;
 
     // Noise generator for biome selection within regions
     private final PerlinSimplexNoise biomeNoise;
     private final PerlinSimplexNoise largeBiomeNoise; // Large-scale biome zones
     private final PerlinSimplexNoise smallBiomeNoise; // Small-scale variation
 
-    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome) {
+    public MiddleEarthBiomeSource(Holder<Biome> oceanBiome, Holder<Biome> landBiome, Holder<Biome> beachBiome, List<Holder<Biome>> allBiomes) {
         // Store the fallback biomes from the dimension JSON
         this.oceanBiome = oceanBiome;
         this.landBiome = landBiome;
         this.beachBiome = beachBiome;
+        this.allBiomes = allBiomes;
+
+        // Build cache by matching holders from JSON to LOTRBiome enum values
+        // These holders are registry-bound and can be properly serialized
+        this.biomeHolderCache = new HashMap<>();
+        for (Holder<Biome> holder : allBiomes) {
+            ResourceLocation location = holder.unwrapKey().map(ResourceKey::location).orElse(null);
+            if (location != null && location.getNamespace().equals(LOTRMod.MODID)) {
+                String biomeName = location.getPath();
+                for (LOTRBiome lotrBiome : LOTRBiome.values()) {
+                    if (lotrBiome.getName().equals(biomeName)) {
+                        biomeHolderCache.put(lotrBiome, holder);
+                        break;
+                    }
+                }
+            }
+        }
 
         // Initialize noise generators for smooth biome transitions
         RandomSource random = RandomSource.create(54321); // Fixed seed for consistency
@@ -57,10 +79,9 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     @Override
     protected Stream<Holder<Biome>> collectPossibleBiomes() {
-        // Only return fallback biomes to avoid triggering DeferredHolder registry checks during init
-        // LOTR biomes are still used via getNoiseBiome(), they just aren't in this list
-        // This list is mainly used for structure placement checks, which we've disabled anyway
-        return Stream.of(oceanBiome, landBiome, beachBiome);
+        // Return all biomes including LOTR biomes from the dimension JSON
+        // These are registry-bound holders that can be properly serialized
+        return Stream.concat(allBiomes.stream(), Stream.of(oceanBiome, landBiome, beachBiome));
     }
 
     @Override
@@ -146,12 +167,13 @@ public class MiddleEarthBiomeSource extends BiomeSource {
 
     /**
      * Get the Minecraft biome holder for a LOTR biome
-     * Returns the DeferredHolder from ModBiomes which will be bound when dereferenced
+     * Returns registry-bound holders from the cache (decoded from dimension JSON)
+     * These holders can be properly serialized for chunk save and network sync
      */
     private Holder<Biome> getBiomeHolder(LOTRBiome lotrBiome) {
-        // Get the DeferredHolder directly from ModBiomes
-        // It acts as a Holder<Biome> and will be properly bound by the time it's used
-        Holder<Biome> holder = ModBiomes.getBiomeHolder(lotrBiome);
+        // Get the registry-bound holder from cache
+        // These were decoded from the dimension JSON and are proper Holder.Reference objects
+        Holder<Biome> holder = biomeHolderCache.get(lotrBiome);
         return holder != null ? holder : landBiome;
     }
 
