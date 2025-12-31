@@ -7,38 +7,11 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Central registry for all LOTR mod items
  */
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(LOTRMod.MODID);
-
-    // Wood type items storage
-    public static final Map<String, WoodTypeItems> WOOD_TYPE_ITEMS = new HashMap<>();
-
-    // ==================== WOOD TYPE ITEMS ====================
-    // For each wood type: sign, hanging_sign, boat, chest_boat
-    static {
-        registerWoodTypeItems("beech");
-        registerWoodTypeItems("white_beech");
-        registerWoodTypeItems("oak");
-        registerWoodTypeItems("birch");
-        registerWoodTypeItems("pine");
-        registerWoodTypeItems("elm");
-        registerWoodTypeItems("maple");
-        registerWoodTypeItems("ash");
-        registerWoodTypeItems("hazel");
-        registerWoodTypeItems("yew");
-        registerWoodTypeItems("rowan");
-        registerWoodTypeItems("willow");
-        registerWoodTypeItems("olive");
-        registerWoodTypeItems("frozen_pine");
-        registerWoodTypeItems("deadwood");
-        registerWoodTypeItems("burnt_wood");
-    }
 
     // ==================== SPECIAL ITEMS ====================
     public static final DeferredItem<Item> VOLCANIC_ASH = ITEMS.register("volcanic_ash",
@@ -46,11 +19,6 @@ public class ModItems {
 
     // ==================== BLOCK ITEMS ====================
     // These are automatically created for most blocks, but we register them explicitly for control
-
-    private static void registerWoodTypeItems(String name) {
-        WoodTypeItems items = new WoodTypeItems(name);
-        WOOD_TYPE_ITEMS.put(name, items);
-    }
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
@@ -60,27 +28,6 @@ public class ModItems {
     }
 
     private static void registerBlockItems() {
-        // Register block items for wood types
-        for (var entry : ModBlocks.WOOD_TYPES.entrySet()) {
-            String name = entry.getKey();
-            var blocks = entry.getValue();
-
-            ITEMS.register(name + "_log", () -> new BlockItem(blocks.log.get(), new Item.Properties()));
-            ITEMS.register(name + "_wood", () -> new BlockItem(blocks.wood.get(), new Item.Properties()));
-            ITEMS.register("stripped_" + name + "_log", () -> new BlockItem(blocks.strippedLog.get(), new Item.Properties()));
-            ITEMS.register("stripped_" + name + "_wood", () -> new BlockItem(blocks.strippedWood.get(), new Item.Properties()));
-            ITEMS.register(name + "_planks", () -> new BlockItem(blocks.planks.get(), new Item.Properties()));
-            ITEMS.register(name + "_stairs", () -> new BlockItem(blocks.stairs.get(), new Item.Properties()));
-            ITEMS.register(name + "_slab", () -> new BlockItem(blocks.slab.get(), new Item.Properties()));
-            ITEMS.register(name + "_fence", () -> new BlockItem(blocks.fence.get(), new Item.Properties()));
-            ITEMS.register(name + "_fence_gate", () -> new BlockItem(blocks.fenceGate.get(), new Item.Properties()));
-            ITEMS.register(name + "_door", () -> new BlockItem(blocks.door.get(), new Item.Properties()));
-            ITEMS.register(name + "_trapdoor", () -> new BlockItem(blocks.trapdoor.get(), new Item.Properties()));
-            ITEMS.register(name + "_pressure_plate", () -> new BlockItem(blocks.pressurePlate.get(), new Item.Properties()));
-            ITEMS.register(name + "_button", () -> new BlockItem(blocks.button.get(), new Item.Properties()));
-            ITEMS.register(name + "_sapling", () -> new BlockItem(blocks.sapling.get(), new Item.Properties()));
-        }
-
         // Register block items for stone types
         for (var entry : ModBlocks.STONE_TYPES.entrySet()) {
             String name = entry.getKey();
@@ -115,28 +62,6 @@ public class ModItems {
         ITEMS.register("tumbleweed", () -> new BlockItem(ModBlocks.TUMBLEWEED.get(), new Item.Properties()));
         ITEMS.register("lotr_vines", () -> new BlockItem(ModBlocks.VINES.get(), new Item.Properties()));
 
-        // Leaves
-        ITEMS.register("beech_leaves", () -> new BlockItem(ModBlocks.BEECH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("white_beech_leaves", () -> new BlockItem(ModBlocks.WHITE_BEECH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("lotr_birch_leaves", () -> new BlockItem(ModBlocks.BIRCH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("lotr_oak_leaves", () -> new BlockItem(ModBlocks.OAK_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("pine_leaves", () -> new BlockItem(ModBlocks.PINE_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("maple_leaves", () -> new BlockItem(ModBlocks.MAPLE_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("ash_leaves", () -> new BlockItem(ModBlocks.ASH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("hazel_leaves", () -> new BlockItem(ModBlocks.HAZEL_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("yew_leaves", () -> new BlockItem(ModBlocks.YEW_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("rowan_leaves", () -> new BlockItem(ModBlocks.ROWAN_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("willow_leaves", () -> new BlockItem(ModBlocks.WILLOW_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("olive_leaves", () -> new BlockItem(ModBlocks.OLIVE_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("dead_leaves", () -> new BlockItem(ModBlocks.DEAD_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("frozen_leaves", () -> new BlockItem(ModBlocks.FROZEN_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("lotr_acacia_leaves", () -> new BlockItem(ModBlocks.ACACIA_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("flowering_beech_leaves", () -> new BlockItem(ModBlocks.FLOWERING_BEECH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("flowering_white_beech_leaves", () -> new BlockItem(ModBlocks.FLOWERING_WHITE_BEECH_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("flowering_maple_leaves", () -> new BlockItem(ModBlocks.FLOWERING_MAPLE_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("flowering_rowan_leaves", () -> new BlockItem(ModBlocks.FLOWERING_ROWAN_LEAVES.get(), new Item.Properties()));
-        ITEMS.register("flowering_olive_leaves", () -> new BlockItem(ModBlocks.FLOWERING_OLIVE_LEAVES.get(), new Item.Properties()));
-
         // Flowers
         ITEMS.register("meadow_buttercup", () -> new BlockItem(ModBlocks.MEADOW_BUTTERCUP.get(), new Item.Properties()));
         ITEMS.register("oxeye_daisy_tall", () -> new BlockItem(ModBlocks.OXEYE_DAISY_TALL.get(), new Item.Properties()));
@@ -160,25 +85,5 @@ public class ModItems {
         // Special
         ITEMS.register("volcanic_ash_block", () -> new BlockItem(ModBlocks.VOLCANIC_ASH_BLOCK.get(), new Item.Properties()));
         ITEMS.register("riverbed_silt", () -> new BlockItem(ModBlocks.RIVERBED_SILT.get(), new Item.Properties()));
-    }
-
-    /**
-     * Helper class to store sign, hanging_sign, boat, and chest_boat items for a wood type
-     */
-    public static class WoodTypeItems {
-        // Note: Signs, hanging signs, boats, and chest boats require custom implementations
-        // For now, we'll create placeholder items
-        public final DeferredItem<Item> sign;
-        public final DeferredItem<Item> hangingSign;
-        public final DeferredItem<Item> boat;
-        public final DeferredItem<Item> chestBoat;
-
-        public WoodTypeItems(String name) {
-            // Placeholder items - these would normally be SignItem, HangingSignItem, BoatItem, etc.
-            this.sign = ITEMS.register(name + "_sign", () -> new Item(new Item.Properties()));
-            this.hangingSign = ITEMS.register(name + "_hanging_sign", () -> new Item(new Item.Properties()));
-            this.boat = ITEMS.register(name + "_boat", () -> new Item(new Item.Properties()));
-            this.chestBoat = ITEMS.register(name + "_chest_boat", () -> new Item(new Item.Properties()));
-        }
     }
 }
